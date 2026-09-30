@@ -927,6 +927,35 @@ if [ $BUILD_MAC == 1 ]; then
 			echo
 			/usr/bin/codesign --verify -vvvv "$appex"
 		done
+	else
+		# Ad-hoc sign, or the build does not start at all.
+		#
+		# On any channel but "source" the ChannelPrefs binary is patched in place a
+		# few hundred lines up, which invalidates the signature it shipped with:
+		#
+		#   codesign -v ChannelPrefs.framework
+		#     -> invalid signature (code or signature have been modified)
+		#
+		# macOS does not warn about that. The kernel kills the process at exec and
+		# the app dies with status 137 and not one line on stdout or stderr. A build
+		# from dir_build never hits it because dir_build uses CHANNEL=source and so
+		# never patches the framework; a release build with SIGN=1 never hits it
+		# either, because the Developer ID pass below re-signs everything it touched.
+		# An unsigned release build falls between the two and is dead on arrival.
+		#
+		# "-" is an ad-hoc identity: it makes the app runnable and nothing more.
+		# Gatekeeper still rejects it on another machine -- that needs a real
+		# Developer ID. See app/assets/paperly/RELEASING.md.
+		echo "Ad-hoc signing (SIGN=0)"
+		/usr/bin/xattr -cr "$APPDIR"
+		find "$APPDIR/Contents/Frameworks" -name '*.framework' -maxdepth 1 -exec \
+			/usr/bin/codesign --force --sign - {} \; 2>/dev/null
+		/usr/bin/codesign --force --deep --sign - "$APPDIR" 2>/dev/null
+		if /usr/bin/codesign --verify "$APPDIR" 2>/dev/null; then
+			echo "  signed"
+		else
+			echo "  WARNING: ad-hoc signing failed -- this build will not launch" >&2
+		fi
 	fi
 	
 	# Build and notarize disk image
