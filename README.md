@@ -27,7 +27,7 @@ and nothing is moved without a backup being written first.
 
 **Reading workflow**, added by the companion plugin: a per-paper reading status you
 can tick from the item list, a starred collection, and an AI panel that opens beside
-the reader. See [Paperly AI](https://github.com/quynhtl/Paperly).
+the reader. See [Paperly AI](https://github.com/quynhtl/Paperly-ai).
 
 Zotero plugins still work. Paperly keeps the plugin manifest format and aliases
 Zotero's application ids, so an add-on built for Zotero installs unchanged.
