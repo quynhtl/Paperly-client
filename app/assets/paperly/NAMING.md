@@ -62,12 +62,19 @@ which is a lie in 47 languages instead of one.
 | Bundle and binary | `Zotero.app` / `MacOS/zotero` | `Paperly.app` / `MacOS/paperly` |
 | Data directory | `~/Zotero` | `~/Paperly` (`ZOTERO_CONFIG.CLIENT_NAME`) |
 | Profile directory | `…/Application Support/Zotero` | `…/Application Support/Paperly` (`Vendor`/`Name` in `application.ini`) |
+| Application id | `zotero@zotero.org` | `paperly@paperly.org` (`APP_ID` + `application.ini`; see `APP-ID.md`) |
 
 What that costs, and it was accepted knowingly: macOS treats a new bundle
 identifier as a new application, so preferences and keychain entries made
 under the old one do not carry over, and the auto-update channel no longer
 matches. An existing library is **not** moved by any of this -- nothing here
-touches a file on disk. A fresh profile will simply make `~/Paperly`; a
+touches a file on disk.
+
+The profile directory row above was for a while true of the config and false of
+the disk: the new root stayed empty while the real profiles sat in the old one,
+which only went unnoticed because every launch path passes `-profile`.
+`app/scripts/migrate_profile` moves them, and `APP-ID.md` explains why it has to
+be a script outside the app rather than a migration in JS. A fresh profile will simply make `~/Paperly`; a
 library already in `~/Zotero` keeps working if it is passed with `-datadir` or
 set in the data directory preference.
 
@@ -76,10 +83,13 @@ path, and were updated with it.
 
 ## Deliberately still named Zotero
 
-- **`ID=zotero@zotero.org`** in `application.ini`. This is the key plugins
-  target -- an add-on manifest carries `"applications": { "zotero": … }` -- so
-  changing it would stop Paperly AI, and every other plugin, from installing.
-  `ZOTERO_CONFIG.GUID` holds the same string and is referenced nowhere.
+- **`applications.zotero`**, the key a plugin manifest targets. It is a literal
+  string in the `fetch_xulrunner` patches, not derived from the app id, which is
+  what lets every plugin written for Zotero install on Paperly unchanged.
+  (The app id itself -- `application.ini`'s `ID`, `APP_ID` and
+  `ZOTERO_CONFIG.GUID` -- **was** renamed; see `APP-ID.md`. That was a separate
+  change, and it needed a compatibility alias to avoid disabling every installed
+  plugin.)
 - **`ZOTERO_CONFIG.ID`**, which names the database file. An existing library
   is `zotero.sqlite`; renaming the constant would look for a file that is not
   there.

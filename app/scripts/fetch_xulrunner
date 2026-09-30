@@ -283,9 +283,20 @@ function modify_omni {
 	replace_line '!this\.strictCompatibility &&' \
 		'(!this.strictCompatibility || Services.appinfo.version.includes("-beta") || Services.appinfo.version.includes("-dev") || Services.appinfo.version.includes("SOURCE")) &&' modules/addons/XPIDatabase.sys.mjs
 	
-	# Accept zotero@chnm.gmu.edu for target application to allow Zotero 6 plugins to remain
-	# installed in Zotero 7
-	replace_line "if \(targetApp.id == Services.appinfo.ID\) \{" "if (targetApp.id == 'zotero\@chnm.gmu.edu') targetApp.id = '$APP_ID'; if (targetApp.id == Services.appinfo.ID) {" modules/addons/XPIDatabase.sys.mjs
+	# Accept Zotero's own application ids for target application, so that plugins built
+	# for Zotero stay compatible with Paperly -- including ones already recorded in an
+	# existing profile, whose extensions.json pins the id it was installed under.
+	# zotero@chnm.gmu.edu is Zotero 6 and earlier; zotero@zotero.org is Zotero 7-11 and
+	# every Paperly build made before APP_ID changed.
+	#
+	# This is not a nicety. matchingTargetApplication returns null when no recorded id
+	# matches Services.appinfo.ID, isCompatibleWith returns false on the spot, and the
+	# add-on manager disables the plugin as incompatible. Changing APP_ID without this
+	# line silently switches off every installed plugin, Paperly AI included.
+	#
+	# The assignment normalises the record in place, so the profile is rewritten to the
+	# new id the first time it is read and the aliases are only ever needed once.
+	replace_line "if \(targetApp.id == Services.appinfo.ID\) \{" "if (targetApp.id == 'zotero\@chnm.gmu.edu' || targetApp.id == 'zotero\@zotero.org') targetApp.id = '$APP_ID'; if (targetApp.id == Services.appinfo.ID) {" modules/addons/XPIDatabase.sys.mjs
 	
 	# TEMP: Skip addons without ids until we figure out what's going on with the default theme.
 	# This fixes plugin updating and other things.

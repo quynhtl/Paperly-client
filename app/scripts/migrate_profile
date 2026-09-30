@@ -1,0 +1,144 @@
+#!/bin/bash
+set -euo pipefail
+
+# Move a Zotero profile directory to where Paperly now looks for it.
+#
+# Gecko picks the profile root from Vendor/Name in application.ini, in C++, before
+# a line of JS runs -- so this cannot be done the way the zotero.sqlite -> paperly.sqlite
+# rename was. It has to happen with the app closed, from outside.
+#
+# What this does NOT touch: your library. The data directory (~/Zotero by default, or
+# whatever extensions.zotero.dataDir says) is a separate place and is left exactly
+# where it is. This moves prefs, installed plugins, certificates and cookies.
+#
+# The original is COPIED, not moved, and left in place as the backup.
+#
+# Usage: ./scripts/migrate_profile [--dry-run]
+
+DRY=0
+[[ "${1:-}" == "--dry-run" ]] && DRY=1
+[[ $# -gt 1 || ( $# -eq 1 && $DRY -eq 0 ) ]] && { echo "Usage: $0 [--dry-run]" >&2; exit 1; }
+
+# Overridable so the whole thing can be rehearsed on a copy first. Testing a data
+# migration anywhere but on a copy is how you find out it was wrong too late.
+if [[ -n "${PAPERLY_PROFILE_SRC:-}" && -n "${PAPERLY_PROFILE_DEST:-}" ]]; then
+	SRC="$PAPERLY_PROFILE_SRC"
+	DEST="$PAPERLY_PROFILE_DEST"
+else
+case "$(uname)" in
+	Darwin)
+		SRC="$HOME/Library/Application Support/Zotero"
+		DEST="$HOME/Library/Application Support/Paperly"
+		;;
+	Linux)
+		SRC="$HOME/.zotero/zotero"
+		DEST="$HOME/.paperly/paperly"
+		;;
+	*)
+		echo "Only macOS and Linux are handled here. On Windows the profile root is" >&2
+		echo "%APPDATA%\\Zotero -> %APPDATA%\\Paperly; do it by hand, and read the" >&2
+		echo "rewrite steps below so the plugin paths are fixed too." >&2
+		exit 1
+		;;
+esac
+fi
+
+run() { if [[ $DRY -eq 1 ]]; then echo "  would: $*"; else "$@"; fi; }
+
+echo "From: $SRC"
+echo "To:   $DEST"
+echo
+
+[[ -d "$SRC" ]] || { echo "Nothing to migrate: $SRC does not exist." >&2; exit 1; }
+[[ -e "$SRC/profiles.ini" ]] || { echo "$SRC holds no profiles.ini -- not a profile root." >&2; exit 1; }
+
+# Refuse to touch a profile that is in use. A half-copied sqlite file is worse than
+# no copy at all, and .parentlock is how Gecko itself marks a live profile.
+# A dry run writes nothing, so it is allowed to report on a live profile.
+if [[ $DRY -eq 0 ]]; then
+	for lock in "$SRC"/Profiles/*/.parentlock; do
+		[[ -e "$lock" ]] || continue
+		if /usr/bin/lsof "$lock" >/dev/null 2>&1; then
+			echo "A profile is in use ($lock). Quit Paperly first." >&2
+			exit 1
+		fi
+	done
+	# Coarse backstop for the default location only: .parentlock is the real check,
+	# but it is absent on a profile that has never been opened, and a running app
+	# could still be mid-startup. Skipped when SRC was overridden for a rehearsal,
+	# where a live app is a false positive.
+	if [[ -z "${PAPERLY_PROFILE_SRC:-}" ]] \
+		&& { pgrep -x paperly >/dev/null 2>&1 || pgrep -x zotero >/dev/null 2>&1; }; then
+		echo "Paperly (or Zotero) is running. Quit it first." >&2
+		exit 1
+	fi
+fi
+
+# Never merge into an existing profile root -- that is how you end up with two
+# extensions.json disagreeing about what is installed.
+if [[ -e "$DEST/profiles.ini" ]]; then
+	echo "$DEST already holds a profile root. Refusing to merge." >&2
+	echo "Move it aside first if you meant to replace it." >&2
+	exit 1
+fi
+
+echo "==> Copying"
+run mkdir -p "$(dirname "$DEST")"
+if [[ -d "$DEST" ]]; then run rmdir "$DEST"; fi   # the empty dir Gecko leaves behind
+if [[ "$(uname)" == "Darwin" ]]; then
+	# ditto, not cp -R: it carries extended attributes and ACLs, and it copies the
+	# directory whole, so no sqlite file is ever separated from its -wal.
+	run /usr/bin/ditto "$SRC" "$DEST"
+else
+	run cp -a "$SRC" "$DEST"
+fi
+
+# Plugin records store the profile path absolutely, twice: as a filesystem path and
+# again percent-encoded inside a jar: URI. Left alone, the migrated profile keeps
+# loading plugins out of the OLD directory, which then looks like the migration worked
+# right up until you delete the backup.
+echo "==> Rewriting stored paths"
+# A dry run has no $DEST to walk, so it reads the source and reports what the copy
+# would need. Same file set either way.
+SCAN="$DEST"; [[ $DRY -eq 1 ]] && SCAN="$SRC"
+for f in "$SCAN"/Profiles/*/extensions.json "$SCAN"/Profiles/*/extensions.json.bak "$SCAN"/Profiles/*/pkcs11.txt; do
+	[[ -f "$f" ]] || continue
+	if [[ $DRY -eq 1 ]]; then
+		hits=$(grep -c -e "$SRC" -e "${SRC// /%20}" "$f" 2>/dev/null || true)
+		echo "  would rewrite $hits line(s) in ${f#$SCAN/}"
+	else
+		python3 - "$f" "$SRC" "$DEST" <<'PY'
+import sys, urllib.parse
+path, src, dest = sys.argv[1:4]
+with open(path, encoding='utf-8') as fh:
+    s = fh.read()
+# The plain path and the percent-encoded form used in jar: URIs.
+out = s.replace(src, dest).replace(urllib.parse.quote(src), urllib.parse.quote(dest))
+if out != s:
+    with open(path, 'w', encoding='utf-8') as fh:
+        fh.write(out)
+PY
+		echo "  rewrote ${f#$DEST/}"
+	fi
+done
+
+# Startup caches key off paths and versions and are rebuilt on launch. Stale ones are
+# the usual reason a migrated profile starts with its plugins missing.
+echo "==> Dropping startup caches"
+for c in "$SCAN"/Profiles/*/addonStartup.json.lz4 "$SCAN"/Profiles/*/startupCache; do
+	[[ -e "$c" ]] || continue
+	if [[ $DRY -eq 1 ]]; then
+		echo "  would drop ${c#$SCAN/}"
+	else
+		rm -rf "$c"
+		echo "  dropped ${c#$SCAN/}"
+	fi
+done
+
+echo
+if [[ $DRY -eq 1 ]]; then
+	echo "Dry run. Nothing was changed."
+else
+	echo "Done. $SRC is untouched and is your backup."
+	echo "Launch Paperly, check Tools -> Plugins and your settings, then delete it."
+fi

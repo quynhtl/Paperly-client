@@ -14,7 +14,7 @@ custom_components_hash_win_arm64="2369eb75912fb91633fb16d0f756c78d41f533522a3415
 custom_components_hash_win32="8eea54a3754b5f5331fc9147a6e7741976d70ddb48c8759f3b1a77e8729d8019"
 
 APP_NAME="Paperly"
-APP_ID="zotero\@zotero.org"
+APP_ID="paperly\@paperly.org"
 
 # Whether to sign builds
 SIGN=0

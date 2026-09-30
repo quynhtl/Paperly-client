@@ -1,5 +1,10 @@
 export var ZOTERO_CONFIG = {
-	GUID: 'zotero@zotero.org',
+	// Paperly: the application id. Gecko's add-on manager is the only thing that
+	// reads it, and it reads it from application.ini ([App] ID) and from the
+	// APP_ID baked into XPIInstall/XPIDatabase by fetch_xulrunner -- not from
+	// here. This copy is referenced nowhere; it is kept in step so that the three
+	// never disagree. See app/assets/paperly/APP-ID.md.
+	GUID: 'paperly@paperly.org',
 	// Paperly: this names the database file (paperly.sqlite) and is what the
 	// Note Markdown translator rewrites zotero:// links to on export. Changing
 	// it is why DataDirectory._migrateLegacyDatabaseName and the second
