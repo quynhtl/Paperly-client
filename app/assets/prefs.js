@@ -106,15 +106,16 @@ pref("extensions.experiments.enabled", true);
 
 // Not set on Windows in Firefox anymore since it's a per-installation pref,
 // but we override that in fetch_xulrunner
-pref("app.update.auto", true);
+// Nothing to update against: see the [AppUpdate] note in application.ini.
+pref("app.update.auto", false);
 
 // URL user can browse to manually if for some reason all update installation
 // attempts fail.
-pref("app.update.url.manual", "https://www.zotero.org/download");
+pref("app.update.url.manual", "https://github.com/quynhtl/Paperly-client/releases");
 
 // A default value for the "More information about this update" link
 // supplied in the "An update is available" page of the update wizard.
-pref("app.update.url.details", "https://www.zotero.org/support/changelog");
+pref("app.update.url.details", "https://github.com/quynhtl/Paperly-client/releases");
 
 // Interval: Time between checks for a new version (in seconds)
 //           default=1 day

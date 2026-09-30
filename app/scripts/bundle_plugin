@@ -1,0 +1,55 @@
+#!/bin/bash
+set -euo pipefail
+
+# Build Paperly AI and put it where build.sh will bundle it into the application.
+#
+# The rename is the point. Gecko reads the add-on id from the FILENAME, so the
+# plugin's own output name (Paperly.AI-0.9.37.xpi) would be skipped without a word
+# in the log the user will ever see. Here the id comes from the plugin's own
+# package.json rather than being written out twice and drifting.
+#
+# Usage: ./scripts/bundle_plugin [path-to-plugin-checkout]
+
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+APP_ROOT_DIR="$(dirname "$SCRIPT_DIR")"
+PLUGIN_DIR="${1:-$(cd "$APP_ROOT_DIR/../../paperly-plugin" 2>/dev/null && pwd || true)}"
+DEST="$APP_ROOT_DIR/assets/distribution/extensions"
+
+if [ -z "$PLUGIN_DIR" ] || [ ! -f "$PLUGIN_DIR/package.json" ]; then
+	echo "No plugin checkout found. Pass its path:" >&2
+	echo "  $0 /path/to/paperly-plugin" >&2
+	exit 1
+fi
+
+ADDON_ID=$(node -p "require('$PLUGIN_DIR/package.json').config.addonID")
+if [ -z "$ADDON_ID" ] || [ "$ADDON_ID" = "undefined" ]; then
+	echo "package.json has no config.addonID -- cannot name the file" >&2
+	exit 1
+fi
+
+echo "==> Building $ADDON_ID"
+(cd "$PLUGIN_DIR" && NODE_ENV=production npm run build)
+
+XPI=$(ls -t "$PLUGIN_DIR"/.scaffold/build/*.xpi 2>/dev/null | head -1)
+[ -n "$XPI" ] && [ -f "$XPI" ] || { echo "No xpi produced" >&2; exit 1; }
+
+# Trust the manifest inside the xpi over package.json: it is what Gecko will read,
+# and a mismatch between the two is exactly the kind of thing that fails silently.
+BUILT_ID=$(unzip -p "$XPI" manifest.json | node -e \
+	'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>console.log(JSON.parse(s).applications.zotero.id))')
+if [ "$BUILT_ID" != "$ADDON_ID" ]; then
+	echo "The built xpi declares $BUILT_ID but package.json says $ADDON_ID -- aborting" >&2
+	exit 1
+fi
+
+mkdir -p "$DEST"
+# Drop any earlier build of this same plugin, whatever it was called, so a renamed id
+# cannot leave two copies here and install the plugin twice. ${DEST:?} makes the shell
+# stop rather than run rm with an empty path.
+rm -f "${DEST:?}"/*.xpi
+cp "$XPI" "$DEST/$ADDON_ID.xpi"
+
+echo "==> Bundled $(basename "$XPI") as $ADDON_ID.xpi"
+echo "    $(du -h "$DEST/$ADDON_ID.xpi" | cut -f1)"
+echo
+echo "Now build the app: ./scripts/dir_build -p m   (or ./build.sh -p m for a release)"

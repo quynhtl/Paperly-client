@@ -81,6 +81,41 @@ function check_lfs_file {
 	fi
 }
 
+# Copy plugins that ship with Paperly into the built application.
+#
+# Gecko scans <XREAppDist>/extensions at startup and installs what it finds into the
+# profile, once, recording extensions.installedDistroAddon.<id> so an add-on the user
+# later removes is not forced back. Verified on a fresh profile: the plugin arrives
+# with source "distribution", active, and neither userDisabled nor appDisabled -- it
+# is a real install, not the side-load that Paperly otherwise disables by default.
+#
+# XREAppDist is Contents/Resources on macOS and the application directory elsewhere,
+# so the caller passes the right one.
+#
+# Each file MUST be named <addon-id>.xpi. getExpectedID derives the id from the
+# filename and skips anything that does not parse, silently as far as the user is
+# concerned. That is the whole contract, and it is why bundle_plugin renames rather
+# than copies whatever the plugin build happened to call its output.
+function copy_distribution_addons {
+	local target="$1"
+	local source="$CALLDIR/assets/distribution"
+	
+	if [ ! -d "$source/extensions" ]; then
+		return
+	fi
+	local count
+	count=$(find "$source/extensions" -name '*.xpi' -maxdepth 1 | wc -l | tr -d ' ')
+	if [ "$count" = "0" ]; then
+		return
+	fi
+	
+	echo "Bundling $count plugin(s) from assets/distribution"
+	mkdir -p "$target/distribution/extensions"
+	# Only the xpis. Copying the directory wholesale would carry .gitignore into the
+	# shipped application, where Gecko logs it as "not an XPI" on every start.
+	find "$source/extensions" -maxdepth 1 -name '*.xpi' -exec cp {} "$target/distribution/extensions/" \;
+}
+
 SOURCE_DIR=""
 ZIP_FILE=""
 BUILD_MAC=0
@@ -704,6 +739,8 @@ if [ $BUILD_MAC == 1 ]; then
 		"$CALLDIR/mac/set-channel-prefs-channel" "$CONTENTSDIR/Frameworks/ChannelPrefs.framework/ChannelPrefs" source $UPDATE_CHANNEL
 	fi
 	
+	copy_distribution_addons "$CONTENTSDIR/Resources"
+	
 	# Use our own launcher
 	check_lfs_file "$CALLDIR/mac/zotero.xz"
 	xz -d --stdout "$CALLDIR/mac/zotero.xz" > "$CONTENTSDIR/MacOS/paperly"
@@ -896,7 +933,7 @@ if [ $BUILD_MAC == 1 ]; then
 	if [ $PACKAGE == 1 ]; then
 		if [ $MAC_NATIVE == 1 ]; then
 			echo "Creating Mac installer"
-			dmg="$DIST_DIR/Zotero-$VERSION.dmg"
+			dmg="$DIST_DIR/Paperly-$VERSION.dmg"
 			"$CALLDIR/mac/pkg-dmg" --source "$STAGE_DIR/Paperly.app" \
 				--target "$dmg" \
 				--sourcefile --volname Paperly --copy "$CALLDIR/mac/DSStore:/.DS_Store" \
@@ -917,7 +954,7 @@ if [ $BUILD_MAC == 1 ]; then
 			echo
 		else
 			echo 'Not building on Mac; creating Mac distribution as a zip file'
-			rm -f "$DIST_DIR/Zotero_mac.zip"
+			rm -f "$DIST_DIR/Paperly_mac.zip"
 			cd "$STAGE_DIR" && zip -rqX "$DIST_DIR/Paperly-${VERSION}_mac.zip" Paperly.app
 		fi
 	fi
@@ -929,6 +966,10 @@ if [ $BUILD_WIN == 1 ]; then
 	
 	COMMON_APPDIR="$STAGE_DIR/Zotero_common"
 	mkdir "$COMMON_APPDIR"
+	
+	# A plugin xpi is architecture-independent, so it rides along in the common
+	# directory that copy_dir merges into every arch below.
+	copy_distribution_addons "$COMMON_APPDIR"
 	
 	# Package non-arch-specific components
 	if [ $PACKAGE -eq 1 ]; then
@@ -1074,11 +1115,11 @@ if [ $BUILD_WIN == 1 ]; then
 				fi
 				
 				if [ "$arch" = "win32" ]; then
-					INSTALLER_PATH="$DIST_DIR/Zotero-${VERSION}_win32_setup.exe"
+					INSTALLER_PATH="$DIST_DIR/Paperly-${VERSION}_win32_setup.exe"
 				elif [ "$arch" = "win-x64" ]; then
-					INSTALLER_PATH="$DIST_DIR/Zotero-${VERSION}_x64_setup.exe"
+					INSTALLER_PATH="$DIST_DIR/Paperly-${VERSION}_x64_setup.exe"
 				elif [ "$arch" = "win-arm64" ]; then
-					INSTALLER_PATH="$DIST_DIR/Zotero-${VERSION}_arm64_setup.exe"
+					INSTALLER_PATH="$DIST_DIR/Paperly-${VERSION}_arm64_setup.exe"
 				fi
 				
 				# Stage installer
@@ -1121,7 +1162,7 @@ if [ $BUILD_WIN == 1 ]; then
 				echo 'Not building on Windows; only building zip file'
 			fi
 			cd "$STAGE_DIR"
-			zip -rqX "$DIST_DIR/Zotero-${VERSION}_$arch.zip" Zotero_$arch
+			zip -rqX "$DIST_DIR/Paperly-${VERSION}_$arch.zip" Zotero_$arch
 		fi
 	done
 	
@@ -1141,8 +1182,8 @@ if [ $BUILD_LINUX == 1 ]; then
 		runtime_path="${LINUX_RUNTIME_PATH_PREFIX}${arch}"
 		
 		# Set up directory
-		echo 'Building Zotero_linux-'$arch
-		APPDIR="$STAGE_DIR/Zotero_linux-$arch"
+		echo 'Building Paperly_linux-'$arch
+		APPDIR="$STAGE_DIR/Paperly_linux-$arch"
 		rm -rf "$APPDIR"
 		mkdir "$APPDIR"
 		
@@ -1152,6 +1193,8 @@ if [ $BUILD_LINUX == 1 ]; then
 		# Use our own launcher that calls the original Firefox executable with -app
 		mv "$APPDIR"/firefox-bin "$APPDIR"/zotero-bin
 		cp "$CALLDIR/linux/zotero" "$APPDIR"/zotero
+		
+		copy_distribution_addons "$APPDIR"
 		
 		# Copy Ubuntu launcher files
 		cp "$CALLDIR/linux/zotero.desktop" "$APPDIR"
@@ -1193,9 +1236,9 @@ if [ $BUILD_LINUX == 1 ]; then
 		
 		if [ $PACKAGE == 1 ]; then
 			# Create tar
-			rm -f "$DIST_DIR/Zotero-${VERSION}_linux-$arch.tar.xz"
+			rm -f "$DIST_DIR/Paperly-${VERSION}_linux-$arch.tar.xz"
 			cd "$STAGE_DIR"
-			tar -cJf "$DIST_DIR/Zotero-${VERSION}_linux-$arch.tar.xz" "Zotero_linux-$arch"
+			tar -cJf "$DIST_DIR/Paperly-${VERSION}_linux-$arch.tar.xz" "Paperly_linux-$arch"
 		fi
 	done
 fi

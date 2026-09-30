@@ -45,8 +45,15 @@ npm run build
 
 cd app
 ./scripts/fetch_xulrunner -p m    # m = macOS, w = Windows, l = Linux
+./scripts/bundle_plugin           # optional: build Paperly AI into the app
 ./scripts/dir_build -p m
 ```
+
+`bundle_plugin` builds the [Paperly AI](https://github.com/quynhtl/Paperly-ai)
+checkout next to this one and drops its xpi in `app/assets/distribution/extensions/`.
+Anything there is copied into the application and installed into the user's profile
+the first time Paperly starts, so a release is one download rather than two. Skip it
+and you get the application on its own.
 
 That produces `app/staging/Paperly.app`. Run it directly, or point it at an isolated
 profile and library while developing:

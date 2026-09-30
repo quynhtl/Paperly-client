@@ -1,0 +1,3 @@
+# Plugin xpis are build output, not source. They are produced by
+# app/scripts/bundle_plugin and picked up from here by build.sh.
+*.xpi
