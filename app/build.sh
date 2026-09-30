@@ -939,7 +939,14 @@ if [ $BUILD_MAC == 1 ]; then
 				--sourcefile --volname Paperly --copy "$CALLDIR/mac/DSStore:/.DS_Store" \
 				--symlink /Applications:"/Drag Here to Install" > /dev/null
 			
-			if [ "$UPDATE_CHANNEL" != "test" ]; then
+			# Notarization needs a Developer ID signature to notarise. Without SIGN=1
+			# the app carries only the ad-hoc signature codesign_local applies, Apple
+			# rejects the submission, and the build fails at the last step for a
+			# reason that has nothing to do with the build. Tying this to SIGN as well
+			# as the channel is what lets an unsigned build use a real channel name and
+			# still finish -- otherwise the only way to get a dmg out is -c test, which
+			# then spells the channel into the filename.
+			if [ "$UPDATE_CHANNEL" != "test" ] && [ $SIGN == 1 ]; then
 				# Upload disk image to Apple
 				"$CALLDIR/scripts/notarize_mac_app" "$dmg"
 				echo
@@ -948,6 +955,9 @@ if [ $BUILD_MAC == 1 ]; then
 				"$CALLDIR/scripts/notarization_stapler" "$dmg"
 				
 				echo "Notarization complete"
+			elif [ $SIGN != 1 ]; then
+				echo "Unsigned build -- skipping notarization"
+				echo "  macOS will refuse to open this on another machine. See app/assets/paperly/RELEASING.md"
 			else
 				echo "Test build -- skipping notarization"
 			fi
@@ -964,7 +974,7 @@ fi
 if [ $BUILD_WIN == 1 ]; then
 	echo "Building Windows common"
 	
-	COMMON_APPDIR="$STAGE_DIR/Zotero_common"
+	COMMON_APPDIR="$STAGE_DIR/Paperly_common"
 	mkdir "$COMMON_APPDIR"
 	
 	# A plugin xpi is architecture-independent, so it rides along in the common
@@ -991,12 +1001,12 @@ if [ $BUILD_WIN == 1 ]; then
 		archs=(win-x64 win-arm64 win32);
 	fi
 	for arch in "${archs[@]}"; do
-		echo "Building Zotero_$arch"
+		echo "Building Paperly_$arch"
 		
 		runtime_path="${WIN_RUNTIME_PATH_PREFIX}$arch"
 		
 		# Set up directory
-		APPDIR="$STAGE_DIR/Zotero_$arch"
+		APPDIR="$STAGE_DIR/Paperly_$arch"
 		mkdir "$APPDIR"
 		
 		# Copy relevant assets from Firefox
@@ -1162,7 +1172,7 @@ if [ $BUILD_WIN == 1 ]; then
 				echo 'Not building on Windows; only building zip file'
 			fi
 			cd "$STAGE_DIR"
-			zip -rqX "$DIST_DIR/Paperly-${VERSION}_$arch.zip" Zotero_$arch
+			zip -rqX "$DIST_DIR/Paperly-${VERSION}_$arch.zip" Paperly_$arch
 		fi
 	done
 	
