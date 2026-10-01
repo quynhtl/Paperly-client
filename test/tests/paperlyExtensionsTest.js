@@ -646,6 +646,30 @@ describe("Zotero.PaperlyExtensions", function () {
 			assert.equal((await AddonManager.getAddonByID(ID)).version, '1.0');
 		});
 		
+		it("should update a blocked version to a release that is not blocked", async function () {
+			await publish(makeIndex([await makeExtension('1.0')]));
+			await Zotero.PaperlyExtensions.refresh();
+			await Zotero.PaperlyExtensions.install(ID);
+			await waitForVersion('1.0');
+			// The fix is out, and the block narrowed to the version before it
+			let blocked = { [ID]: { versionRanges: [{ maxVersion: '1.0' }], reason: 'Leaks.' } };
+			await publish(makeIndex([await makeExtension('1.1')], { blocked }));
+			await Zotero.PaperlyExtensions.refresh();
+			await waitForVersion(undefined);
+			let opened = waitForWindow('chrome://zotero/content/paperlyExtensions.xhtml');
+			Zotero.PaperlyExtensions.openWindow({ extensionID: ID });
+			win = await opened;
+			let doc = win.document;
+			
+			let update = await waitFor(() => doc.querySelector('.details-actions [data-l10n-id="extensions-update"]'));
+			// Blocked, it still cannot be switched back on
+			assert.isNull(doc.querySelector('.details-actions [data-l10n-id="extensions-enable"]'));
+			update.click();
+			doc.getElementById('confirm-ok').click();
+			await waitForVersion('1.1');
+			assert.isTrue((await AddonManager.getAddonByID(ID)).isActive);
+		});
+		
 		it("should check again when the last check is dated in the future", async function () {
 			await publish(makeIndex([await makeExtension('1.0.0')]));
 			await Zotero.PaperlyExtensions.refresh();

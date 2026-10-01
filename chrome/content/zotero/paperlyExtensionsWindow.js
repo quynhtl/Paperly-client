@@ -326,12 +326,22 @@ var Zotero_Paperly_Extensions = {
 	},
 	
 	
+	// The release an installed extension can update to: a newer one, not itself
+	// blocked -- which is how a blocked version gets its fix
 	_getUpdate(entry) {
 		if (!entry.addon || !entry.extension) {
 			return null;
 		}
 		let release = Zotero.PaperlyExtensions.getCompatibleVersion(entry.extension);
-		return release && Services.vc.compare(release.version, entry.addon.version) > 0 ? release : null;
+		if (!release || Services.vc.compare(release.version, entry.addon.version) <= 0) {
+			return null;
+		}
+		let blocked = Zotero.PaperlyExtensions.getMarketplaceBlockReason({
+			id: entry.id,
+			version: release.version,
+			updateURL: entry.addon.updateURL
+		});
+		return blocked ? null : release;
 	},
 	
 	
@@ -424,7 +434,7 @@ var Zotero_Paperly_Extensions = {
 				}
 			});
 		}
-		else if (update && !blockReason) {
+		else if (update) {
 			action = h('button', {
 				class: 'item-action',
 				tabindex: '-1',
@@ -587,7 +597,7 @@ var Zotero_Paperly_Extensions = {
 			}));
 		}
 		else {
-			if (this._getUpdate(entry) && !blockReason) {
+			if (this._getUpdate(entry)) {
 				buttons.push(h('button', {
 					class: 'primary',
 					l10n: { id: 'extensions-update' },
