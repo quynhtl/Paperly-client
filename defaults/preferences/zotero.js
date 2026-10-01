@@ -278,10 +278,10 @@ pref("extensions.zotero.themePickerShown", false);
 
 // Paperly's extension marketplace (xpcom/paperlyExtensions.js), published by
 // the paperly-extensions repository. Its index is only believed when it
-// verifies with publicKey, which `node scripts/keygen.mjs` there makes;
-// until it is set, the Extensions window says the marketplace is not set up.
+// verifies with publicKey: the public half of the key in that repository's
+// REGISTRY_SIGNING_KEY secret. Replacing the key means replacing it here too.
 pref("extensions.zotero.paperlyExtensions.registryURL", "https://quynhtl.github.io/paperly-extensions/");
-pref("extensions.zotero.paperlyExtensions.publicKey", "");
+pref("extensions.zotero.paperlyExtensions.publicKey", "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEESHAQn/Sfi9VUTuIAI8L13nMtySNl24dXH4VcWkbtLIHYTp/9jHKm7PYPwACwIBj3oCWkFcnsXFk+LbYVVLlKQ==");
 pref("extensions.zotero.paperlyExtensions.autoCheck", true);
 pref("extensions.zotero.paperlyExtensions.lastCheck", 0);
 // The marketplace's blocks as of the last index that verified, read by
