@@ -37,6 +37,7 @@ extensions-view-failed = This view couldn’t be shown. The error is in the debu
 
 extensions-publisher-official = Official
 extensions-publisher-verified = Verified publisher
+extensions-publisher-verified-domain = Verified: { $domain }
 extensions-publisher-unverified = Unverified publisher
 extensions-version = v{ $version }
 extensions-license = { $license } license

@@ -488,7 +488,13 @@ var Zotero_Paperly_Extensions = {
 			badge = h('span', { class: 'publisher-badge verified', l10n: { id: 'extensions-publisher-official' } });
 		}
 		else if (publisher.verified) {
-			badge = h('span', { class: 'publisher-badge verified', l10n: { id: 'extensions-publisher-verified' } });
+			// The domain the publisher proved they control, where there is room for it
+			badge = publisher.domain && !short
+				? h('span', {
+					class: 'publisher-badge verified',
+					l10n: { id: 'extensions-publisher-verified-domain', args: { domain: publisher.domain } }
+				})
+				: h('span', { class: 'publisher-badge verified', l10n: { id: 'extensions-publisher-verified' } });
 		}
 		else if (!short) {
 			badge = h('span', { class: 'publisher-badge', l10n: { id: 'extensions-publisher-unverified' } });

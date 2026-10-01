@@ -71,7 +71,7 @@ describe("Zotero.PaperlyExtensions", function () {
 		};
 	}
 	
-	function makeIndex(versions, { generated = new Date(), blocked = {} } = {}) {
+	function makeIndex(versions, { generated = new Date(), blocked = {}, publisher } = {}) {
 		return {
 			schema: 1,
 			generated: generated.toISOString(),
@@ -81,7 +81,7 @@ describe("Zotero.PaperlyExtensions", function () {
 				id: ID,
 				name: 'Paperly Extensions Test',
 				description: 'Tells the tests which version is running.',
-				publisher: { name: 'Paperly', github: 'paperly', official: true, verified: true },
+				publisher: publisher || { name: 'Paperly', github: 'paperly', official: true, verified: true },
 				repo: 'paperly/test',
 				homepage: null,
 				license: 'MIT',
@@ -433,6 +433,22 @@ describe("Zotero.PaperlyExtensions", function () {
 			assert.isFalse(doc.getElementById('manager').hidden);
 			assert.isNull(doc.querySelector('.view-button'));
 			assert.isTrue(Zotero.PaperlyExtensionsTestViewDestroyed);
+		});
+		
+		it("should name the domain a publisher verified", async function () {
+			let publisher = { name: 'Someone', github: 'someone', official: false, verified: true, domain: 'example.org' };
+			await publish(makeIndex([await makeExtension('1.0.0')], { publisher }));
+			await Zotero.PaperlyExtensions.refresh();
+			let opened = waitForWindow('chrome://zotero/content/paperlyExtensions.xhtml');
+			Zotero.PaperlyExtensions.openWindow({ extensionID: ID });
+			win = await opened;
+			let doc = win.document;
+			let badge = await waitFor(() => doc.querySelector('#details .publisher-badge.verified'));
+			assert.equal(badge.getAttribute('data-l10n-id'), 'extensions-publisher-verified-domain');
+			assert.deepEqual(JSON.parse(badge.getAttribute('data-l10n-args')), { domain: 'example.org' });
+			// The list has room only for the badge
+			let listBadge = doc.querySelector(`.item[data-id="${ID}"] .publisher-badge`);
+			assert.equal(listBadge.getAttribute('data-l10n-id'), 'extensions-publisher-verified');
 		});
 		
 		it("should install nothing when the confirmation is cancelled", async function () {
