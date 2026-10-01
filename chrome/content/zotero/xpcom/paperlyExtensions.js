@@ -86,10 +86,6 @@ Zotero.PaperlyExtensions = new function () {
 	
 	this.init = function () {
 		Zotero.addShutdownListener(() => clearTimeout(_checkTimer));
-		AddonManager.addInstallListener(_updateGuard);
-		Zotero.addShutdownListener(() => AddonManager.removeInstallListener(_updateGuard));
-		// What the update check compares with; until it is here, updates wait
-		this.getIndex().catch(e => Zotero.logError(e));
 		// An extension's views go when it stops, however it stops
 		Zotero.Plugins.addObserver({
 			shutdown: ({ id }) => this._removeViewsOf(id)
@@ -120,6 +116,18 @@ Zotero.PaperlyExtensions = new function () {
 	};
 	
 	
+	/**
+	 * Has the add-on manager check with the update guard before it installs
+	 * over a marketplace extension (see the top of this file), and loads the
+	 * kept index the guard compares with; until it is here, updates wait.
+	 */
+	this._guardUpdates = function () {
+		AddonManager.addInstallListener(_updateGuard);
+		Zotero.addShutdownListener(() => AddonManager.removeInstallListener(_updateGuard));
+		this.getIndex().catch(e => Zotero.logError(e));
+	};
+
+
 	/**
 	 * Whether there is a marketplace to talk to: an address, and a key to
 	 * check what comes from it.
@@ -824,6 +832,13 @@ Zotero.PaperlyExtensions = new function () {
 		}
 	}
 };
+
+
+// Not left to init(), which waits for Zotero to finish starting: the add-on
+// manager's own update check first runs about 30 seconds after launch either
+// way, and Zotero may not have finished by then -- or ever, when its startup
+// fails. So updates are guarded from the moment this file loads.
+Zotero.PaperlyExtensions._guardUpdates();
 
 
 // Started once Zotero has loaded, and so without a line in zotero.js. On a
