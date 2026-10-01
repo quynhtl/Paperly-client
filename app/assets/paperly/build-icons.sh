@@ -1,14 +1,13 @@
 #!/bin/bash
 # Renders the Paperly app icon from icon.html and installs it for all three
-# platforms. Re-run this after touching icon.html or anya.png.
+# platforms. Re-run this after touching icon.html or paperly-mark.svg.
 #
-#   ./build-icons.sh [look]      look defaults to "plum"
-#                                (also: cream, sage, rose)
+#   ./build-icons.sh [look]      look defaults to "slate"
 #
 # Needs headless Chrome to rasterise and iconutil (macOS) for the .icns.
 set -euo pipefail
 
-LOOK="${1:-plum}"
+LOOK="${1:-slate}"
 HERE="$(cd "$(dirname "$0")" && pwd)"
 APP="$(cd "$HERE/../.." && pwd)"
 CHROME="${CHROME:-/Applications/Google Chrome.app/Contents/MacOS/Google Chrome}"
@@ -21,14 +20,13 @@ fi
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 
-# --allow-file-access-from-files is what lets the page read the drawing's
-# pixels back out of the canvas; without it the flood fill cannot run.
+# --allow-file-access-from-files lets the page load paperly-mark.svg
 render() { # render <out.png> <size> <mode> [fill]
 	"$CHROME" --headless --disable-gpu --hide-scrollbars \
 		--allow-file-access-from-files --default-background-color=00000000 \
 		--virtual-time-budget=4000 \
 		--screenshot="$1" --window-size="$2,$2" \
-		"file://$HERE/icon.html?v=$LOOK&size=$2&mode=$3&fill=${4:-0.99}" 2>/dev/null
+		"file://$HERE/icon.html?v=$LOOK&size=$2&mode=$3&fill=${4:-0.66}" 2>/dev/null
 	[ -s "$1" ] || { echo "render failed: $1" >&2; exit 1; }
 }
 

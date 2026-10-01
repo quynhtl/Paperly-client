@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="34 46 620 620">
+<!-- The hexagon from Paperly_logo.png, traced by hand: the logo is 750px, so
+     the mark in it is ~110px, too few to blow up to an app icon. The cut-outs
+     are drawn in the logo's ground colour, so it belongs on a dark plate. -->
+<polygon fill="#F1F1F1" points="340,60 618,215 568,420 345,392 575,528 330,652 70,520 70,215"/>
+<polygon fill="#1F242B" points="348,108 578,242 535,375 408,358"/>
+<polygon fill="#C9C9C9" points="345,110 405,358 345,355"/>
+<polygon fill="#1F242B" points="185,298 338,345 338,620 195,470 112,495"/>
+<polygon fill="#C9C9C9" points="108,250 185,298 112,495"/>
+<polygon fill="#C9C9C9" points="112,495 195,470 330,615"/>
+</svg>
