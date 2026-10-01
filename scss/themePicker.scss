@@ -1,0 +1,234 @@
+@import "abstracts/variables";
+@import "abstracts/functions";
+@import "abstracts/mixins";
+
+@import "themes/light";
+@import "themes/dark";
+
+// First-run theme picker
+// --------------------------------------------------
+
+// The window keeps the platform's dialog colour unless told otherwise
+#zotero-theme-picker-window {
+	appearance: none;
+	display: flex;
+	background-color: var(--material-sidepane);
+}
+
+#theme-picker {
+	display: flex;
+	flex-direction: column;
+	flex: 1;
+	box-sizing: border-box;
+	padding: 40px 40px 28px;
+	background-color: var(--material-sidepane);
+	color: var(--fill-primary);
+	-moz-window-dragging: drag;
+
+	h1 {
+		margin: 0;
+		font-size: 22px;
+		font-weight: 600;
+	}
+
+	#theme-picker-subtitle {
+		margin: 6px 0 28px;
+		color: var(--fill-secondary);
+		font-size: 13px;
+	}
+}
+
+#theme-picker-themes {
+	display: grid;
+	grid-template-columns: repeat(3, 1fr);
+	gap: 20px;
+}
+
+.theme {
+	appearance: none;
+	display: flex;
+	flex-direction: column;
+	gap: 10px;
+	margin: 0;
+	padding: 0;
+	border: 0;
+	background: none;
+	color: inherit;
+	font: inherit;
+	text-align: start;
+	-moz-window-dragging: no-drag;
+
+	.preview {
+		position: relative;
+		aspect-ratio: 16 / 10;
+		border-radius: 8px;
+		overflow: hidden;
+		outline: 1px solid var(--color-border);
+		transition: outline-color 120ms, outline-offset 120ms;
+	}
+
+	&:hover .preview {
+		outline-color: var(--fill-tertiary);
+	}
+
+	&[aria-checked="true"] .preview {
+		outline: 2px solid var(--accent-blue);
+		outline-offset: 3px;
+	}
+
+	&:focus-visible {
+		outline: none;
+
+		.preview {
+			box-shadow: 0 0 0 6px var(--accent-blue30);
+		}
+	}
+
+	.label {
+		display: flex;
+		align-items: center;
+		gap: 8px;
+		font-size: 13px;
+		font-weight: 500;
+	}
+
+	.badge {
+		padding: 1px 6px;
+		border-radius: 4px;
+		background: var(--fill-quinary);
+		color: var(--fill-secondary);
+		font-size: 11px;
+		font-weight: 400;
+	}
+}
+
+#theme-picker-actions {
+	display: flex;
+	justify-content: flex-end;
+	gap: 8px;
+	margin-top: auto;
+
+	button {
+		appearance: none;
+		min-width: 88px;
+		padding: 6px 14px;
+		border: 1px solid var(--color-border);
+		border-radius: 6px;
+		background: var(--material-button);
+		color: var(--fill-primary);
+		font: inherit;
+		font-size: 13px;
+		-moz-window-dragging: no-drag;
+
+		&:hover {
+			background: var(--fill-quinary);
+		}
+
+		&.primary {
+			border-color: transparent;
+			background: var(--accent-blue);
+			color: var(--accent-white);
+
+			&:hover {
+				filter: brightness(1.1);
+			}
+		}
+
+		&:focus-visible {
+			outline: 2px solid var(--accent-blue50);
+			outline-offset: 1px;
+		}
+	}
+}
+
+// Thumbnails. Each one carries its own colours rather than the live theme's.
+
+.mock {
+	position: absolute;
+	inset: 0;
+	display: flex;
+	flex-direction: column;
+	background: var(--m-chrome);
+
+	&.dark {
+		--m-chrome: #141414;
+		--m-content: #181818;
+		--m-divider: #262626;
+		--m-line: #ffffff26;
+		--m-dot: #ffffff2e;
+	}
+
+	&.light {
+		--m-chrome: #f2f2f2;
+		--m-content: #fff;
+		--m-divider: #dadada;
+		--m-line: #0000001f;
+		--m-dot: #00000026;
+	}
+
+	&.zotero-dark {
+		--m-chrome: #303030;
+		--m-content: #1e1e1e;
+		--m-divider: #404040;
+		--m-line: #ffffff26;
+		--m-dot: #ffffff2e;
+	}
+}
+
+.mock-titlebar {
+	display: flex;
+	gap: 4px;
+	padding: 6px 8px;
+	border-bottom: 1px solid var(--m-divider);
+
+	.dot {
+		width: 6px;
+		height: 6px;
+		border-radius: 50%;
+		background: var(--m-dot);
+	}
+}
+
+.mock-body {
+	flex: 1;
+	display: flex;
+}
+
+.mock-collections,
+.mock-items,
+.mock-item-pane {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+	padding: 8px 6px;
+}
+
+.mock-collections {
+	width: 24%;
+	border-inline-end: 1px solid var(--m-divider);
+}
+
+.mock-items {
+	flex: 1;
+	background: var(--m-content);
+}
+
+.mock-item-pane {
+	width: 28%;
+	border-inline-start: 1px solid var(--m-divider);
+}
+
+.line {
+	height: 6px;
+	border-radius: 3px;
+	background: var(--m-line);
+
+	&.selected {
+		background: #4072e5;
+	}
+
+	.mock-item-pane &:nth-child(even),
+	.mock-collections &:nth-child(odd) {
+		width: 70%;
+	}
+}

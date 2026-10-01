@@ -1,0 +1,76 @@
+<?xml version="1.0"?>
+<!--
+    ***** BEGIN LICENSE BLOCK *****
+
+    This file is part of Paperly, a fork of Zotero.
+
+    Zotero is free software: you can redistribute it and/or modify
+    it under the terms of the GNU Affero General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    Zotero is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU Affero General Public License for more details.
+
+    You should have received a copy of the GNU Affero General Public License
+    along with Zotero.  If not, see <http://www.gnu.org/licenses/>.
+
+    ***** END LICENSE BLOCK *****
+-->
+<?xml-stylesheet href="chrome://global/skin/" type="text/css"?>
+<?xml-stylesheet href="chrome://zotero/skin/zotero.css" type="text/css"?>
+<?xml-stylesheet href="chrome://zotero/skin/themePicker.css" type="text/css"?>
+<?xml-stylesheet href="chrome://zotero-platform/content/zotero.css" type="text/css"?>
+
+<window
+	xmlns="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul"
+	xmlns:html="http://www.w3.org/1999/xhtml"
+	id="zotero-theme-picker-window"
+	data-l10n-id="theme-picker-window"
+	drawintitlebar-platforms="mac"
+	width="760"
+	height="380"
+	onload="Zotero_Theme_Picker.init()">
+	<linkset>
+		<html:link rel="localization" href="branding/brand.ftl"/>
+		<html:link rel="localization" href="zotero.ftl"/>
+	</linkset>
+
+	<script src="include.js"/>
+	<script src="titlebar.js"/>
+	<script src="themePicker.js"/>
+
+	<html:div id="theme-picker">
+		<html:h1 data-l10n-id="theme-picker-title"/>
+		<html:p id="theme-picker-subtitle" data-l10n-id="theme-picker-subtitle"/>
+
+		<html:div id="theme-picker-themes" role="radiogroup" aria-labelledby="theme-picker-subtitle">
+			<html:div class="theme" role="radio" tabindex="-1" data-theme="dark">
+				<html:div class="preview"/>
+				<html:span class="label">
+					<html:span data-l10n-id="theme-picker-dark"/>
+					<html:span class="badge" data-l10n-id="theme-picker-default"/>
+				</html:span>
+			</html:div>
+			<html:div class="theme" role="radio" tabindex="-1" data-theme="light">
+				<html:div class="preview"/>
+				<html:span class="label">
+					<html:span data-l10n-id="theme-picker-light"/>
+				</html:span>
+			</html:div>
+			<html:div class="theme" role="radio" tabindex="-1" data-theme="zotero-dark">
+				<html:div class="preview"/>
+				<html:span class="label">
+					<html:span data-l10n-id="theme-picker-zotero-dark"/>
+				</html:span>
+			</html:div>
+		</html:div>
+
+		<html:div id="theme-picker-actions">
+			<html:button id="theme-picker-skip" data-l10n-id="theme-picker-skip"/>
+			<html:button id="theme-picker-continue" class="primary" data-l10n-id="theme-picker-continue"/>
+		</html:div>
+	</html:div>
+</window>

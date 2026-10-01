@@ -184,6 +184,7 @@ class ReaderInstance {
 
 
 		await this._waitForReader();
+		this._injectThemeCSS();
 
 		if (this._customEventHandler) {
 			this._iframeWindow.removeEventListener('customEvent', this._customEventHandler);
@@ -1945,6 +1946,20 @@ class ReaderInstance {
 			await this._setReadAloudEnabledVoices(io.dataOut);
 		}
 	}
+
+	// The reader is prebuilt with Zotero's dark greys; lay Paperly's over them
+	// (the sheet stands aside by itself when Zotero Dark is chosen)
+	_injectThemeCSS() {
+		let doc = this._iframeWindow.document;
+		if (doc.getElementById('paperly-theme')) {
+			return;
+		}
+		ReaderInstance._themeCSS ??= Zotero.File.getContentsFromURL('chrome://zotero/skin/readerTheme.css');
+		let style = doc.createElement('style');
+		style.id = 'paperly-theme';
+		style.textContent = ReaderInstance._themeCSS;
+		doc.head.appendChild(style);
+	}
 }
 
 class ReaderTab extends ReaderInstance {
@@ -2432,6 +2447,9 @@ class ReaderPreview extends ReaderInstance {
 		}
 		@media (prefers-color-scheme: dark) {
 			body #viewerContainer {
+				background-color: #141414 !important;
+			}
+			:root[data-dark-theme] body #viewerContainer {
 				background-color: #303030 !important;
 			}
 			.pdfViewer .page::before {

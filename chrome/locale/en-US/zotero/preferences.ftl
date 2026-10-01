@@ -48,6 +48,11 @@ preferences-color-scheme-light =
     .label = Light
 preferences-color-scheme-dark =
     .label = Dark
+preferences-dark-theme = Dark Theme:
+preferences-dark-theme-paperly =
+    .label = { -app-name }
+preferences-dark-theme-zotero =
+    .label = Zotero
 
 preferences-item-pane-header = Item Pane Header:
 preferences-item-pane-header-style = Header Citation Style:

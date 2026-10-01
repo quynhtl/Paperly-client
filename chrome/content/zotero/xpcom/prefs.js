@@ -374,6 +374,9 @@ Zotero.Prefs = new function () {
 		["uiDensity", function () {
 			Zotero.UIProperties.setAll();
 		}],
+		["darkTheme", function () {
+			Zotero.UIProperties.setDarkThemeAll();
+		}],
 		[ "layout", function (val) {
 			Zotero.getActiveZoteroPane().updateLayout();
 		}],

@@ -270,8 +270,11 @@ pref("extensions.zotero.reader.lastSidebarTab", "annotations");
 pref("extensions.zotero.reader.popupPositions", "{}");
 pref("extensions.zotero.reader.readAloud.highlightGranularity", "sentence");
 
-// Set color scheme to auto by default
-pref("browser.theme.toolbar-theme", 2);
+// Paperly opens dark (0); light is 1 and automatic 2. Dark uses Paperly's own
+// palette ("paperly") unless darkTheme asks for Zotero's ("zotero").
+pref("browser.theme.toolbar-theme", 0);
+pref("extensions.zotero.darkTheme", "paperly");
+pref("extensions.zotero.themePickerShown", false);
 
 // Need to enable -moz-context-properties for SVG context properties to work
 pref("svg.context-properties.content.enabled", true);

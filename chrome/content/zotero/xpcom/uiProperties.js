@@ -26,6 +26,18 @@
 Zotero.UIProperties = new (class {
 	_roots = new Set();
 	
+	// Paperly's own dark palette is the default; the darkTheme pref can bring back
+	// Zotero's. The choice is an attribute on the root of every Paperly document
+	// -- windows, dialogs and the reader's frames -- which the stylesheets key on.
+	_darkThemeDocs = new Set();
+	
+	constructor() {
+		Services.obs.addObserver(doc => this._registerDarkThemeDoc(doc), 'document-element-inserted');
+		for (let win of Services.wm.getEnumerator(null)) {
+			this._registerDarkThemeDoc(win.document);
+		}
+	}
+	
 	registerRoot(root) {
 		if (root.nodeType !== Node.ELEMENT_NODE) {
 			throw new Error('Root must be an element');
@@ -76,6 +88,40 @@ Zotero.UIProperties = new (class {
 		}
 		else {
 			root.removeAttribute('dir');
+		}
+	}
+	
+	setDarkThemeAll() {
+		for (let docRef of this._darkThemeDocs) {
+			let doc = docRef.deref();
+			if (!doc) {
+				this._darkThemeDocs.delete(docRef);
+				continue;
+			}
+			this._setDarkTheme(doc);
+		}
+	}
+	
+	_registerDarkThemeDoc(doc) {
+		let url = doc.documentURI;
+		if (!url.startsWith('chrome://') && !url.startsWith('resource://zotero/')
+				|| doc.contentType.startsWith('image/')) {
+			return;
+		}
+		this._darkThemeDocs.add(new WeakRef(doc));
+		this._setDarkTheme(doc);
+	}
+	
+	_setDarkTheme(doc) {
+		let root = doc.documentElement;
+		if (!root) {
+			return;
+		}
+		if (Zotero.Prefs.get('darkTheme') == 'zotero') {
+			root.setAttribute('data-dark-theme', 'zotero');
+		}
+		else {
+			root.removeAttribute('data-dark-theme');
 		}
 	}
 	

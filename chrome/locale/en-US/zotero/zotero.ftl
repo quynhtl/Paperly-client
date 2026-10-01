@@ -1342,3 +1342,14 @@ menu-edit-redo-action = Redo { $action }
 
 local-api-authorize-title = Local API Authorization
 local-api-authorize-text = “{ $appName }”, an application running on your computer, wants to modify your { -app-name } library.
+
+theme-picker-window =
+    .title = Welcome to { -app-name }
+theme-picker-title = Choose your theme
+theme-picker-subtitle = You can change it any time in Settings → General → Appearance.
+theme-picker-dark = Dark
+theme-picker-light = Light
+theme-picker-zotero-dark = Zotero Dark
+theme-picker-default = Default
+theme-picker-skip = Skip
+theme-picker-continue = Continue

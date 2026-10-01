@@ -652,6 +652,17 @@ var ZoteroPane = new function () {
 			catch (e) {}
 		}
 		
+		if (!Zotero.Prefs.get('themePickerShown') && !Zotero.automatedTest) {
+			Zotero.Prefs.set('themePickerShown', true);
+			setTimeout(() => {
+				window.openDialog(
+					'chrome://zotero/content/themePicker.xhtml',
+					'zotero-theme-picker',
+					'chrome,dialog,modal,centerscreen'
+				);
+			}, 500);
+		}
+		
 		if (Zotero.openPane) {
 			Zotero.openPane = false;
 			setTimeout(function () {

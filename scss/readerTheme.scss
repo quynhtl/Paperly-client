@@ -1,0 +1,41 @@
+@use "sass:color";
+@use "sass:map";
+@use "sass:string";
+
+// The reader ships prebuilt with its own copy of the dark palette, so it would
+// keep Zotero's greys inside a Paperly window. This sheet carries Paperly's dark
+// surfaces alone -- not the accents or tag colours, which the reader tunes for
+// itself -- and ReaderInstance injects it into the reader iframe. The selectors
+// mirror the reader's own, or its more specific ones would win, and stand aside
+// when the user has picked Zotero's dark palette, which the reader already has.
+
+@import "themes/dark-palette";
+
+@function -on($background, $fill) {
+	@return color.mix(
+		map.get($dark-colors, $background),
+		color.change(map.get($dark-colors, $fill), $alpha: 1),
+		100% * (1 - color.alpha(map.get($dark-colors, $fill)))
+	);
+}
+
+@mixin -surfaces {
+	@each $name, $color in $dark-colors {
+		@if string.index($name, "accent-") != 1 and string.index($name, "tag-") != 1 {
+			--#{$name}: #{$color};
+		}
+	}
+	--color-quinary-on-background: #{-on("color-background", "fill-quinary")};
+	--color-quarternary-on-background: #{-on("color-background", "fill-quarternary")};
+	--color-quarternary-on-sidepane: #{-on("color-sidepane", "fill-quarternary")};
+}
+
+:root[data-color-scheme=dark]:not([data-dark-theme]) {
+	@include -surfaces;
+}
+
+@media (prefers-color-scheme: dark) {
+	:root:not([data-color-scheme]):not([data-dark-theme]) {
+		@include -surfaces;
+	}
+}
