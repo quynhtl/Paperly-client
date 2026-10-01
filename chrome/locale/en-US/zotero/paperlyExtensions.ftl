@@ -73,7 +73,7 @@ extensions-confirm-install = Install { $name }?
 extensions-confirm-update = Update { $name }?
 extensions-confirm-declares = It says it:
 extensions-confirm-new-uses = This version also:
-extensions-confirm-publisher-changed = It now comes from a different publisher:
+extensions-confirm-publisher-changed = It was installed from { $previous } on GitHub, and now comes from { $current }:
 extensions-confirm-warnings = The checks found:
 extensions-confirm-trust = Extensions run with full access to Paperly and your files. Install only extensions from publishers you trust.
 

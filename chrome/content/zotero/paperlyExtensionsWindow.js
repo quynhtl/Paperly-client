@@ -794,9 +794,16 @@ var Zotero_Paperly_Extensions = {
 		let body = document.getElementById('confirm-body');
 		body.replaceChildren();
 		if (update) {
+			// The accounts, and not only the name: a listing's publisher name is
+			// free text, and a new holder of the id can give the old one's
 			if (entry.previousPublisher) {
 				body.append(
-					h('p', { l10n: { id: 'extensions-confirm-publisher-changed' } }),
+					h('p', {
+						l10n: {
+							id: 'extensions-confirm-publisher-changed',
+							args: { previous: entry.previousPublisher, current: entry.extension.publisher.github }
+						}
+					}),
 					h('p', { class: 'publisher' }, this._renderPublisher(entry)));
 			}
 			if (newUses.length) {

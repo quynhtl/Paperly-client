@@ -782,6 +782,9 @@ describe("Zotero.PaperlyExtensions", function () {
 			assert.deepEqual(JSON.parse(banner.getAttribute('data-l10n-args')), { previous: 'paperly', current: 'someone-else' });
 			doc.querySelector('.details-actions [data-l10n-id="extensions-update"]').click();
 			assert.isFalse(doc.getElementById('confirm').hidden);
+			// The accounts, which the name alone could hide
+			let changed = doc.querySelector('#confirm-body [data-l10n-id="extensions-confirm-publisher-changed"]');
+			assert.deepEqual(JSON.parse(changed.getAttribute('data-l10n-args')), { previous: 'paperly', current: 'someone-else' });
 			assert.include(doc.getElementById('confirm-body').textContent, 'Someone else');
 			doc.getElementById('confirm-ok').click();
 			await waitForVersion('1.1');
