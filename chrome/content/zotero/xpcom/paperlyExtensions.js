@@ -26,9 +26,18 @@
 // decides what gets installed. The index is believed only when its signature
 // verifies with the public key in prefs, so nothing between the marketplace
 // and the user -- a proxy trusted through the system's certificate store
-// included -- can change what is offered. Every install then names the
-// SHA-256 the index gives for the file, and the add-on manager refuses a
+// included -- can change what is offered. Every install from here then names
+// the SHA-256 the index gives for the file, and the add-on manager refuses a
 // download that does not match it.
+//
+// The add-on manager also updates extensions by itself, daily, from the update
+// URL each declares -- for a listed extension, a file the marketplace publishes
+// unsigned, which anything in between could rewrite. So an update it is about
+// to make over a marketplace extension goes ahead only when the signed index
+// lists that version with that file's SHA-256, and the version uses nothing the
+// installed one did not; anything else is cancelled, and it tries again the
+// next day. An update that uses more is the user's to confirm, in the
+// Extensions window.
 
 Zotero.PaperlyExtensions = new function () {
 	const CHECK_INTERVAL = 24 * 60 * 60 * 1000;
@@ -56,10 +65,27 @@ Zotero.PaperlyExtensions = new function () {
 	var _views = new Map();
 	var _checkTimer = null;
 	var _sandbox = null;
+	// The installs install() started, which the update check lets through
+	var _ownInstalls = new WeakSet();
+	var _updateGuard = {
+		onInstallStarted(install) {
+			let refusal = _checkUpdate(install);
+			if (refusal) {
+				Zotero.warn(`Paperly extensions: not updating ${install.existingAddon.id} `
+					+ `to ${install.addon && install.addon.version}: ${refusal}`);
+				return false;
+			}
+			return true;
+		}
+	};
 	
 	
 	this.init = function () {
 		Zotero.addShutdownListener(() => clearTimeout(_checkTimer));
+		AddonManager.addInstallListener(_updateGuard);
+		Zotero.addShutdownListener(() => AddonManager.removeInstallListener(_updateGuard));
+		// What the update check compares with; until it is here, updates wait
+		this.getIndex().catch(e => Zotero.logError(e));
 		// An extension's views go when it stops, however it stops
 		Zotero.Plugins.addObserver({
 			shutdown: ({ id }) => this._removeViewsOf(id)
@@ -284,6 +310,7 @@ Zotero.PaperlyExtensions = new function () {
 			version: release.version,
 			telemetryInfo: { source: 'paperly-extensions' }
 		});
+		_ownInstalls.add(install);
 		let addon = await new Promise((resolve, reject) => {
 			install.addListener({
 				onDownloadProgress(install) {
@@ -534,6 +561,64 @@ Zotero.PaperlyExtensions = new function () {
 	}
 	
 	
+	// Why the add-on manager must not make an install over a marketplace
+	// extension, or null if it may. Its own updates come from a file nobody
+	// signed, so the signed index has to vouch for the version, and for the
+	// file by its SHA-256; and as in the Extensions window, an update that uses
+	// more than the installed version needs the user's confirmation.
+	function _checkUpdate(install) {
+		let existing = install.existingAddon;
+		if (!existing || !_isFromMarketplace(existing) || _ownInstalls.has(install)) {
+			return null;
+		}
+		if (!_index) {
+			return 'the marketplace index is not loaded yet';
+		}
+		let extension = _index.extensions.find(x => x.id == existing.id);
+		let version = install.addon && install.addon.version;
+		let release = extension && extension.versions.find(v => v.version == version);
+		if (!release) {
+			return 'the marketplace does not list this version';
+		}
+		let hash;
+		try {
+			hash = _hashFile(install.file);
+		}
+		catch (e) {
+			return `its file cannot be read: ${e}`;
+		}
+		if (hash != String(release.sha256).toLowerCase()) {
+			return 'the file is not the one the marketplace lists';
+		}
+		let installed = extension.versions.find(v => v.version == existing.version);
+		let usedBefore = (installed && installed.uses) || [];
+		let newUses = (release.uses || []).filter(use => !usedBefore.includes(use));
+		if (newUses.length) {
+			return `it also uses ${newUses.join(', ')}, which the user has not agreed to`;
+		}
+		return null;
+	}
+	
+	
+	// The update URL the marketplace has every listed extension declare (as
+	// updateURL() in scripts/lib/config.mjs there makes it), or null without a
+	// marketplace
+	function _getUpdateURL(id) {
+		if (!Zotero.Prefs.get('paperlyExtensions.registryURL')) {
+			return null;
+		}
+		let slug = String(id).replace(/[^A-Za-z0-9._@-]/g, '_');
+		return `${Zotero.PaperlyExtensions.getRegistryURL()}updates/${slug}.json`;
+	}
+	
+	
+	// Whether an installed add-on takes its updates from the marketplace
+	function _isFromMarketplace(addon) {
+		let url = _getUpdateURL(addon.id);
+		return !!url && addon.updateURL === url;
+	}
+	
+	
 	// Whether an installed add-on is the marketplace's copy of a listing: it takes
 	// its updates from where the listing says. The id alone proves nothing --
 	// anyone can list the id of a plugin they did not write.
@@ -561,6 +646,23 @@ Zotero.PaperlyExtensions = new function () {
 			throw _error('format', 'The marketplace index is in a format this Paperly does not read');
 		}
 		return index;
+	}
+	
+	
+	// Synchronous, as an install listener has to answer at once; the add-on
+	// manager reads the file the same way to check its own hashes
+	function _hashFile(file) {
+		let hasher = Cc['@mozilla.org/security/hash;1'].createInstance(Ci.nsICryptoHash);
+		hasher.init(Ci.nsICryptoHash.SHA256);
+		let stream = Cc['@mozilla.org/network/file-input-stream;1'].createInstance(Ci.nsIFileInputStream);
+		stream.init(file, -1, -1, 0);
+		try {
+			hasher.updateFromStream(stream, file.fileSize);
+		}
+		finally {
+			stream.close();
+		}
+		return [...hasher.finish(false)].map(c => c.charCodeAt(0).toString(16).padStart(2, '0')).join('');
 	}
 	
 	

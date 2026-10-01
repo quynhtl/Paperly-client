@@ -279,6 +279,45 @@ describe("Zotero.PaperlyExtensions", function () {
 		});
 	});
 	
+	describe("updates the add-on manager makes by itself", function () {
+		// 1.0, installed from the marketplace
+		async function installFirst() {
+			let first = await makeExtension('1.0');
+			await publish(makeIndex([first]));
+			await Zotero.PaperlyExtensions.refresh();
+			await Zotero.PaperlyExtensions.install(ID);
+			await waitForVersion('1.0');
+			return first;
+		}
+		
+		it("should refuse one whose file the index does not list", async function () {
+			let first = await installFirst();
+			let update = await makeExtension('1.1');
+			await publish(makeIndex([{ ...update, sha256: '0'.repeat(64) }, first]));
+			await Zotero.PaperlyExtensions.refresh();
+			assert.equal(await installDirectly(update), 'cancelled');
+			assert.equal((await AddonManager.getAddonByID(ID)).version, '1.0');
+		});
+		
+		it("should allow one the index lists", async function () {
+			let first = await installFirst();
+			let update = await makeExtension('1.1');
+			await publish(makeIndex([update, first]));
+			await Zotero.PaperlyExtensions.refresh();
+			assert.equal(await installDirectly(update), 'installed');
+			await waitForVersion('1.1');
+		});
+		
+		it("should refuse one that uses more than the installed version", async function () {
+			let first = await installFirst();
+			let update = await makeExtension('1.1');
+			await publish(makeIndex([{ ...update, uses: ['passwords'] }, first]));
+			await Zotero.PaperlyExtensions.refresh();
+			assert.equal(await installDirectly(update), 'cancelled');
+			assert.equal((await AddonManager.getAddonByID(ID)).version, '1.0');
+		});
+	});
+	
 	describe("blocking", function () {
 		it("should switch a blocked extension off, and on again when the block is lifted", async function () {
 			let release = await makeExtension('1.0.0');
