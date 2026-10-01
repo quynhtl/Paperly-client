@@ -591,6 +591,35 @@ describe("Zotero.PaperlyExtensions", function () {
 			assert.isTrue(Zotero.PaperlyExtensionsTestViewDestroyed);
 		});
 		
+		it("should say so when a view fails to render, later or at once", async function () {
+			let removers = [
+				Zotero.PaperlyExtensions.registerView({
+					pluginID: 'views@example.com', id: 'later', label: 'Later',
+					onRender: async () => {
+						throw new Error('Failed later');
+					}
+				}),
+				Zotero.PaperlyExtensions.registerView({
+					pluginID: 'views@example.com', id: 'now', label: 'Now',
+					onRender: () => {
+						throw new Error('Failed at once');
+					}
+				})
+			];
+			try {
+				let opened = waitForWindow('chrome://zotero/content/paperlyExtensions.xhtml');
+				Zotero.PaperlyExtensions.openWindow({ view: 'views@example.com:later' });
+				win = await opened;
+				let doc = win.document;
+				await waitFor(() => doc.querySelector('.view[data-view="views@example.com:later"] .view-failed'));
+				win.Zotero_Paperly_Extensions.showView('views@example.com:now');
+				assert.ok(doc.querySelector('.view[data-view="views@example.com:now"] .view-failed'));
+			}
+			finally {
+				removers.forEach(remove => remove());
+			}
+		});
+		
 		it("should name the domain a publisher verified", async function () {
 			let publisher = { name: 'Someone', github: 'someone', official: false, verified: true, domain: 'example.org' };
 			await publish(makeIndex([await makeExtension('1.0.0')], { publisher }));

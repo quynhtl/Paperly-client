@@ -178,12 +178,19 @@ var Zotero_Paperly_Extensions = {
 				body);
 			document.getElementById('view-host').append(container);
 			this._viewParts.set(key, { view, container, body });
-			try {
-				view.onRender({ body, window });
-			}
-			catch (e) {
+			let fail = (e) => {
 				Zotero.logError(e);
 				body.replaceChildren(h('p', { class: 'view-failed', l10n: { id: 'extensions-view-failed' } }));
+			};
+			try {
+				let result = view.onRender({ body, window });
+				// onRender may return a promise (docs/api.md), and fail through it
+				if (result && typeof result.then == 'function') {
+					Promise.resolve(result).catch(fail);
+				}
+			}
+			catch (e) {
+				fail(e);
 			}
 		}
 		for (let [otherKey, parts] of this._viewParts) {
