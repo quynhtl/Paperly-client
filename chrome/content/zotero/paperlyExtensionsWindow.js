@@ -746,7 +746,7 @@ var Zotero_Paperly_Extensions = {
 		// from someone else.
 		let installed = addon && extension.versions.find(v => v.version == addon.version);
 		let unlisted = !!addon && !installed;
-		let usedBefore = installed ? Zotero.PaperlyExtensions.getAgreedUses(extension, addon) : [];
+		let usedBefore = installed ? Zotero.PaperlyExtensions.getAgreedUses(addon) : [];
 		let newUses = (release.uses || []).filter(use => !usedBefore.includes(use));
 		let confirm = !update || unlisted || newUses.length || entry.previousPublisher;
 		if (confirm && !await this._confirm(entry, release, { update, newUses })) {

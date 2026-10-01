@@ -233,7 +233,7 @@ Zotero.PaperlyExtensions = new function () {
 		Zotero.Prefs.set('paperlyExtensions.lastGenerated', index.generated);
 		Zotero.Prefs.set('paperlyExtensions.lastCheck', Math.round(Date.now() / 1000));
 		await _applyBlocked(index.blocked);
-		await _rememberPublishers(index);
+		await _rememberInstalled(index);
 		_notify('index');
 		return index;
 	};
@@ -335,30 +335,20 @@ Zotero.PaperlyExtensions = new function () {
 	 * What the user agreed to an installed marketplace extension using, which
 	 * an update to it is judged by -- in the add-on manager's own updates and
 	 * the Extensions window alike -- so that only what it uses beyond that is
-	 * asked about. That is what was recorded when install() put it there, and
-	 * not what the index lists for the installed version now: a publisher can
-	 * put out the same version again, using more, and have it listed in place
-	 * of the one installed. Without a record (the extension shipped with
-	 * Paperly, say), what the index lists for that version, or once it no
-	 * longer does, what the listing declares, which a first install shows.
+	 * asked about. That is what was recorded when install() put it there, or
+	 * when an index was first seen to list its very file (see
+	 * _rememberInstalled()), and not what the index lists for the installed
+	 * version now: a publisher can put out the same version again, using
+	 * more, and have it listed in place of the one installed -- or widen what
+	 * the listing declares along with the release that needs it. Without a
+	 * record, nothing, so that everything an update uses is asked about.
 	 *
-	 * @param {Object} extension - Its listing
 	 * @param {Addon} addon
 	 * @return {String[]}
 	 */
-	this.getAgreedUses = function (extension, addon) {
+	this.getAgreedUses = function (addon) {
 		let agreed = _getPrefObject('paperlyExtensions.agreedUses')[addon.id];
-		if (Array.isArray(agreed)) {
-			return agreed;
-		}
-		let installed = extension.versions.find(v => v.version == addon.version);
-		if (installed) {
-			return installed.uses || [];
-		}
-		let declares = extension.declares || {};
-		return Object.keys(declares).filter(
-			key => (Array.isArray(declares[key]) ? declares[key].length > 0 : declares[key] === true)
-		);
+		return Array.isArray(agreed) ? agreed : [];
 	};
 	
 	
@@ -702,7 +692,7 @@ Zotero.PaperlyExtensions = new function () {
 		if (hash != String(release.sha256).toLowerCase()) {
 			return 'the file is not the one the marketplace lists';
 		}
-		let usedBefore = Zotero.PaperlyExtensions.getAgreedUses(extension, existing);
+		let usedBefore = Zotero.PaperlyExtensions.getAgreedUses(existing);
 		let newUses = (release.uses || []).filter(use => !usedBefore.includes(use));
 		if (newUses.length) {
 			return `it also uses ${newUses.join(', ')}, which the user has not agreed to`;
@@ -760,16 +750,60 @@ Zotero.PaperlyExtensions = new function () {
 	
 	
 	// An extension that install() did not put there -- the one shipped with
-	// Paperly, say -- comes from the account first seen listing it
-	async function _rememberPublishers(index) {
+	// Paperly, say, or a file installed by hand -- comes from the account first
+	// seen listing it. It uses what an index lists for its version only once
+	// that is its very file, by SHA-256: the version alone proves nothing, as a
+	// publisher can put out the same version again, using more. So nothing is
+	// recorded for a file that is not the listed one -- a build of its own, as
+	// the extension shipped with Paperly may be -- and every use of an update
+	// to it counts as new.
+	async function _rememberInstalled(index) {
 		let publishers = _getPublishers();
+		let agreed = _getPrefObject('paperlyExtensions.agreedUses');
 		let addons = await AddonManager.getAddonsByTypes(['extension']);
 		for (let addon of addons) {
 			let extension = index.extensions.find(x => x.id == addon.id);
-			if (extension && !publishers[addon.id] && _isListingOf(extension, addon)) {
+			if (!extension || !_isListingOf(extension, addon)) {
+				continue;
+			}
+			if (!publishers[addon.id]) {
 				_setPublisher(extension);
 			}
+			if (!Array.isArray(agreed[addon.id])) {
+				let release = _getInstalledRelease(extension, addon);
+				if (release) {
+					_setAgreedUses(addon.id, release.uses || []);
+				}
+			}
 		}
+	}
+	
+	
+	// The listed release an installed extension is, by its file's SHA-256, or null
+	function _getInstalledRelease(extension, addon) {
+		let release = extension.versions.find(v => v.version == addon.version);
+		if (!release) {
+			return null;
+		}
+		try {
+			let file = _getAddonFile(addon);
+			return file && _hashFile(file) == String(release.sha256).toLowerCase() ? release : null;
+		}
+		catch (e) {
+			Zotero.debug(`Paperly extensions: cannot read the file of ${addon.id}: ${e}`, 2);
+			return null;
+		}
+	}
+	
+	
+	// The .xpi an installed add-on runs from -- the add-on manager copies the
+	// file it installs unchanged -- or null when it runs from a folder
+	function _getAddonFile(addon) {
+		let uri = addon.getResourceURI();
+		if (uri instanceof Ci.nsIJARURI) {
+			uri = uri.JARFile;
+		}
+		return uri instanceof Ci.nsIFileURL && uri.file.isFile() ? uri.file : null;
 	}
 	
 	

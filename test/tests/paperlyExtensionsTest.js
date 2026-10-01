@@ -25,7 +25,8 @@ describe("Zotero.PaperlyExtensions", function () {
 	// Writes an .xpi that records in Zotero.PaperlyExtensionsTest which version
 	// of it is running -- and, with withView, gives itself a view -- and serves
 	// it at files/<name>. It takes its updates from the marketplace unless
-	// updateURL says otherwise.
+	// updateURL says otherwise. Each is a file of its own, as two builds of a
+	// version are, though the zip format keeps times only to two seconds.
 	async function makeExtension(version, { withView = false, id = ID, updateURL = marketplaceUpdateURL() } = {}) {
 		let name = `test-${version}-${++xpiCount}.xpi`;
 		let path = PathUtils.join(dir, name);
@@ -46,7 +47,8 @@ describe("Zotero.PaperlyExtensions", function () {
 					}
 				}
 			}),
-			'bootstrap.js': 'function startup({ id, version }) {\n'
+			'bootstrap.js': `// ${name}\n`
+				+ 'function startup({ id, version }) {\n'
 				+ '  Zotero.PaperlyExtensionsTest = version;\n'
 				+ (withView
 					? '  Zotero.PaperlyExtensions.registerView({ pluginID: id, id: "main", label: "Test view",\n'
@@ -415,16 +417,50 @@ describe("Zotero.PaperlyExtensions", function () {
 			assert.isTrue((await AddonManager.getAddonByID(ID)).isActive);
 		});
 		
-		it("should judge one over a version not installed from here by what the listing declares", async function () {
-			// As the extension shipped with Paperly is
+		it("should count every use as new over a version with no agreement recorded", async function () {
+			// As the extension shipped with Paperly may be: installed, but not
+			// from here, and a build of its own rather than the file the index
+			// lists for its version
 			assert.equal(await installDirectly(await makeExtension('1.0')), 'installed');
 			await waitForVersion('1.0');
 			let update = await makeExtension('1.1');
-			await publish(makeIndex([{ ...update, uses: ['files'] }]));
+			await publish(makeIndex([{ ...update, uses: ['files'] }, { ...await makeExtension('1.0'), uses: ['files'] }]));
+			await Zotero.PaperlyExtensions.refresh();
+			assert.deepEqual(Zotero.PaperlyExtensions.getAgreedUses(await AddonManager.getAddonByID(ID)), []);
+			assert.equal(await installDirectly(update), 'cancelled');
+			
+			// Nor once the index drops 1.0 and the listing declares what 1.1 uses
+			await publish(makeIndex([{ ...update, uses: ['files'] }], { declares: { files: true } }));
+			await Zotero.PaperlyExtensions.refresh();
+			assert.equal(await installDirectly(update), 'cancelled');
+			assert.equal((await AddonManager.getAddonByID(ID)).version, '1.0');
+			
+			// An update that uses nothing has nothing to ask about
+			await publish(makeIndex([update]));
+			await Zotero.PaperlyExtensions.refresh();
+			assert.equal(await installDirectly(update), 'installed');
+			await waitForVersion('1.1');
+		});
+		
+		it("should take a version not installed from here to use what the index lists for its very file", async function () {
+			// A release installed by hand
+			let first = await makeExtension('1.0');
+			assert.equal(await installDirectly(first), 'installed');
+			await waitForVersion('1.0');
+			await publish(makeIndex([{ ...first, uses: ['files'] }]));
+			await Zotero.PaperlyExtensions.refresh();
+			assert.deepEqual(Zotero.PaperlyExtensions.getAgreedUses(await AddonManager.getAddonByID(ID)), ['files']);
+			
+			// Recorded, so 1.0 put out again using more does not move it
+			let update = await makeExtension('1.1');
+			await publish(makeIndex([
+				{ ...update, uses: ['files', 'passwords'] },
+				{ ...await makeExtension('1.0'), uses: ['files', 'passwords'] }
+			]));
 			await Zotero.PaperlyExtensions.refresh();
 			assert.equal(await installDirectly(update), 'cancelled');
 			
-			await publish(makeIndex([{ ...update, uses: ['files'] }], { declares: { files: true } }));
+			await publish(makeIndex([{ ...update, uses: ['files'] }]));
 			await Zotero.PaperlyExtensions.refresh();
 			assert.equal(await installDirectly(update), 'installed');
 			await waitForVersion('1.1');
