@@ -5,7 +5,8 @@ describe("Zotero.PaperlyExtensions", function () {
 	
 	const ID = 'paperly-extensions-test@paperly.org';
 	
-	var httpd, baseURL, keys, dir;
+	var httpd, baseURL, keys, dir, checkUpdateSecurity;
+	var xpiCount = 0;
 	
 	function toBase64(buffer) {
 		return btoa(String.fromCharCode(...new Uint8Array(buffer)));
@@ -16,11 +17,17 @@ describe("Zotero.PaperlyExtensions", function () {
 		return [...new Uint8Array(digest)].map(b => b.toString(16).padStart(2, '0')).join('');
 	}
 	
+	// Where the marketplace has every listed extension take its updates from
+	function marketplaceUpdateURL() {
+		return `${baseURL}updates/${ID}.json`;
+	}
+	
 	// Writes an .xpi that records in Zotero.PaperlyExtensionsTest which version
 	// of it is running -- and, with withView, gives itself a view -- and serves
-	// it at files/<name>
-	async function makeExtension(version, { withView = false } = {}) {
-		let name = `test-${version}${withView ? '-view' : ''}.xpi`;
+	// it at files/<name>. It takes its updates from the marketplace unless
+	// updateURL says otherwise.
+	async function makeExtension(version, { withView = false, updateURL = marketplaceUpdateURL() } = {}) {
+		let name = `test-${version}-${++xpiCount}.xpi`;
 		let path = PathUtils.join(dir, name);
 		/* eslint-disable camelcase */
 		let files = {
@@ -31,9 +38,9 @@ describe("Zotero.PaperlyExtensions", function () {
 				applications: {
 					zotero: {
 						id: ID,
-						// The add-on manager disables an add-on whose updates
-						// would come over plain HTTP, as the test server's would
-						update_url: `https://registry.test/updates/${ID}.json`,
+						// Plain HTTP from the test server, which before() lets
+						// the add-on manager accept
+						update_url: updateURL,
 						strict_min_version: '6.999',
 						strict_max_version: '*'
 					}
@@ -89,6 +96,7 @@ describe("Zotero.PaperlyExtensions", function () {
 				categories: [],
 				icon: null,
 				declares: {},
+				updateURL: marketplaceUpdateURL(),
 				versions: versions.map(v => ({ size: 0, released: null, uses: [], hosts: [], findings: [], ...v }))
 			}],
 			blocked
@@ -107,6 +115,21 @@ describe("Zotero.PaperlyExtensions", function () {
 		httpd.registerFile('/index.json.sig', Zotero.File.pathToFile(PathUtils.join(dir, name + '.sig')));
 	}
 	
+	// Installs a release the way anything but the marketplace would -- a file
+	// from elsewhere, or the add-on manager's own update -- and says how it ended
+	async function installDirectly(release) {
+		let install = await AddonManager.getInstallForURL(release.url, { hash: 'sha256:' + release.sha256 });
+		return new Promise((resolve) => {
+			install.addListener({
+				onInstallEnded: () => resolve('installed'),
+				onInstallCancelled: () => resolve('cancelled'),
+				onInstallFailed: () => resolve('failed'),
+				onDownloadFailed: () => resolve('failed')
+			});
+			Promise.resolve(install.install()).catch(() => {});
+		});
+	}
+	
 	async function waitForVersion(version) {
 		for (let i = 0; i < 100 && Zotero.PaperlyExtensionsTest !== version; i++) {
 			await Zotero.Promise.delay(50);
@@ -121,6 +144,10 @@ describe("Zotero.PaperlyExtensions", function () {
 		dir = await getTempDirectory();
 		keys = await crypto.subtle.generateKey({ name: 'ECDSA', namedCurve: 'P-256' }, true, ['sign', 'verify']);
 		publicKey = toBase64(await crypto.subtle.exportKey('spki', keys.publicKey));
+		// The add-on manager disables an add-on whose updates would come over
+		// plain HTTP, as the test server's do
+		checkUpdateSecurity = AddonManager.checkUpdateSecurity;
+		AddonManager.checkUpdateSecurity = false;
 	});
 	
 	// The runner clears every pref after each test
@@ -137,6 +164,7 @@ describe("Zotero.PaperlyExtensions", function () {
 	});
 	
 	after(async function () {
+		AddonManager.checkUpdateSecurity = checkUpdateSecurity;
 		await new Promise(resolve => httpd.stop(resolve));
 		await IOUtils.remove(PathUtils.join(PathUtils.profileDir, 'paperly-extensions'), { recursive: true });
 	});
@@ -233,6 +261,21 @@ describe("Zotero.PaperlyExtensions", function () {
 		it("should refuse an extension that is not listed", async function () {
 			let error = await getPromiseError(Zotero.PaperlyExtensions.install('nobody@example.com'));
 			assert.equal(error.code, 'not-listed');
+		});
+		
+		it("should leave alone an extension from elsewhere that has a listed id", async function () {
+			let elsewhere = await makeExtension('1.0', { updateURL: 'https://elsewhere.test/updates.json' });
+			assert.equal(await installDirectly(elsewhere), 'installed');
+			await waitForVersion('1.0');
+			await publish(makeIndex([await makeExtension('2.0')]));
+			await Zotero.PaperlyExtensions.refresh();
+			
+			let entry = (await Zotero.PaperlyExtensions.getInstalled()).find(x => x.addon.id == ID);
+			assert.isNull(entry.extension);
+			assert.equal(entry.conflict.id, ID);
+			let error = await getPromiseError(Zotero.PaperlyExtensions.install(ID));
+			assert.equal(error.code, 'id-conflict');
+			assert.equal((await AddonManager.getAddonByID(ID)).version, '1.0');
 		});
 	});
 	
@@ -449,6 +492,45 @@ describe("Zotero.PaperlyExtensions", function () {
 			// The list has room only for the badge
 			let listBadge = doc.querySelector(`.item[data-id="${ID}"] .publisher-badge`);
 			assert.equal(listBadge.getAttribute('data-l10n-id'), 'extensions-publisher-verified');
+		});
+		
+		it("should offer no Update for an extension from elsewhere that has a listed id", async function () {
+			let elsewhere = await makeExtension('1.0', { updateURL: 'https://elsewhere.test/updates.json' });
+			assert.equal(await installDirectly(elsewhere), 'installed');
+			await publish(makeIndex([await makeExtension('2.0')]));
+			await Zotero.PaperlyExtensions.refresh();
+			let opened = waitForWindow('chrome://zotero/content/paperlyExtensions.xhtml');
+			Zotero.PaperlyExtensions.openWindow({ extensionID: ID });
+			win = await opened;
+			let doc = win.document;
+			
+			let banners = await waitFor(() => {
+				let ids = [...doc.querySelectorAll('#details .banner')].map(b => b.getAttribute('data-l10n-id'));
+				return ids.length && ids;
+			});
+			assert.includeMembers(banners, ['extensions-not-from-marketplace', 'extensions-id-conflict']);
+			assert.isNull(doc.querySelector('[data-l10n-id="extensions-update"]'));
+		});
+		
+		it("should confirm an update from a version the marketplace does not list", async function () {
+			await publish(makeIndex([await makeExtension('1.0')]));
+			await Zotero.PaperlyExtensions.refresh();
+			await Zotero.PaperlyExtensions.install(ID);
+			await waitForVersion('1.0');
+			// 1.0 is gone, and 1.1 says it uses nothing
+			await publish(makeIndex([await makeExtension('1.1')]));
+			await Zotero.PaperlyExtensions.refresh();
+			let opened = waitForWindow('chrome://zotero/content/paperlyExtensions.xhtml');
+			Zotero.PaperlyExtensions.openWindow({ extensionID: ID });
+			win = await opened;
+			let doc = win.document;
+			
+			let update = await waitFor(() => doc.querySelector('.details-actions [data-l10n-id="extensions-update"]'));
+			update.click();
+			assert.isFalse(doc.getElementById('confirm').hidden);
+			doc.getElementById('confirm-cancel').click();
+			await Zotero.Promise.delay(200);
+			assert.equal((await AddonManager.getAddonByID(ID)).version, '1.0');
 		});
 		
 		it("should install nothing when the confirmation is cancelled", async function () {

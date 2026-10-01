@@ -36,7 +36,8 @@ let ERRORS = {
 	hash: 'extensions-error-hash',
 	corrupt: 'extensions-error-corrupt',
 	'file-access': 'extensions-error-file-access',
-	incompatible: 'extensions-error-incompatible'
+	incompatible: 'extensions-error-incompatible',
+	'id-conflict': 'extensions-error-id-conflict'
 };
 
 function h(tag, attributes, ...children) {
@@ -293,12 +294,12 @@ var Zotero_Paperly_Extensions = {
 	// Everything there is to show: what is installed, then what is not
 	_getEntries() {
 		let installed = this._installed
-			.map(({ addon, extension }) => ({ id: addon.id, addon, extension }))
+			.map(({ addon, extension, conflict }) => ({ id: addon.id, addon, extension, conflict }))
 			.sort((a, b) => this._getName(a).localeCompare(this._getName(b)));
 		let installedIDs = new Set(installed.map(entry => entry.id));
 		let marketplace = ((this._index && this._index.extensions) || [])
 			.filter(extension => !installedIDs.has(extension.id))
-			.map(extension => ({ id: extension.id, addon: null, extension }));
+			.map(extension => ({ id: extension.id, addon: null, extension, conflict: null }));
 		return { installed, marketplace };
 	},
 	
@@ -545,6 +546,9 @@ var Zotero_Paperly_Extensions = {
 		if (addon && !extension) {
 			banners.push(h('p', { class: 'banner warning', l10n: { id: 'extensions-not-from-marketplace' } }));
 		}
+		if (entry.conflict) {
+			banners.push(h('p', { class: 'banner warning', l10n: { id: 'extensions-id-conflict' } }));
+		}
 		if (extension && !compatible) {
 			banners.push(h('p', {
 				class: 'banner warning',
@@ -708,10 +712,14 @@ var Zotero_Paperly_Extensions = {
 			return;
 		}
 		// A first install says what the extension does; an update only what
-		// this version does that the installed one did not
+		// this version does that the installed one did not. A version the
+		// marketplace does not list could have done anything, so from one of
+		// those everything counts as new, and the update is always confirmed.
 		let installed = addon && extension.versions.find(v => v.version == addon.version);
-		let newUses = installed ? (release.uses || []).filter(use => !(installed.uses || []).includes(use)) : [];
-		if ((!update || newUses.length) && !await this._confirm(entry, release, { update, newUses })) {
+		let unlisted = !!addon && !installed;
+		let usedBefore = (installed && installed.uses) || [];
+		let newUses = (release.uses || []).filter(use => !usedBefore.includes(use));
+		if ((!update || unlisted || newUses.length) && !await this._confirm(entry, release, { update, newUses })) {
 			return;
 		}
 		
@@ -757,9 +765,11 @@ var Zotero_Paperly_Extensions = {
 		let body = document.getElementById('confirm-body');
 		body.replaceChildren();
 		if (update) {
-			body.append(
-				h('p', { l10n: { id: 'extensions-confirm-new-uses' } }),
-				h('ul', { class: 'uses' }, this._describeUses(Object.fromEntries(newUses.map(use => [use, true])))));
+			if (newUses.length) {
+				body.append(
+					h('p', { l10n: { id: 'extensions-confirm-new-uses' } }),
+					h('ul', { class: 'uses' }, this._describeUses(Object.fromEntries(newUses.map(use => [use, true])))));
+			}
 		}
 		else {
 			let declared = this._describeUses(entry.extension.declares);

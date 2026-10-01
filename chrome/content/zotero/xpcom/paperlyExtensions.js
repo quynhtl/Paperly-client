@@ -267,6 +267,12 @@ Zotero.PaperlyExtensions = new function () {
 		if (!extension) {
 			throw _error('not-listed', `${id} is not in the marketplace`);
 		}
+		// Anyone can list an id, so one already taken by an add-on from
+		// elsewhere is a different extension's, and the listing must not replace it
+		let existing = await AddonManager.getAddonByID(id);
+		if (existing && !_isListingOf(extension, existing)) {
+			throw _error('id-conflict', `${id} is already installed from outside the marketplace`);
+		}
 		let release = this.getCompatibleVersion(extension);
 		if (!release) {
 			throw _error('incompatible', `No version of ${id} runs in Paperly ${Services.appinfo.version}`);
@@ -332,19 +338,23 @@ Zotero.PaperlyExtensions = new function () {
 	
 	
 	/**
-	 * Every installed extension, with its listing when the marketplace has one.
+	 * Every installed extension, with its listing when it is the marketplace's
+	 * own copy of it. An add-on from elsewhere that only shares a listed id gets
+	 * that listing as `conflict` instead: a different extension, which must
+	 * neither describe nor replace it.
 	 *
-	 * @return {Promise<{ addon: Addon, extension: Object|null }[]>}
+	 * @return {Promise<{ addon: Addon, extension: Object|null, conflict: Object|null }[]>}
 	 */
 	this.getInstalled = async function () {
 		let index = await this.getIndex();
 		let addons = await AddonManager.getAddonsByTypes(['extension']);
 		return addons
 			.filter(addon => !addon.hidden)
-			.map(addon => ({
-				addon,
-				extension: (index && index.extensions.find(x => x.id == addon.id)) || null
-			}));
+			.map((addon) => {
+				let listing = (index && index.extensions.find(x => x.id == addon.id)) || null;
+				let own = !!listing && _isListingOf(listing, addon);
+				return { addon, extension: own ? listing : null, conflict: own ? null : listing };
+			});
 	};
 	
 	
@@ -524,6 +534,18 @@ Zotero.PaperlyExtensions = new function () {
 	}
 	
 	
+	// Whether an installed add-on is the marketplace's copy of a listing: it takes
+	// its updates from where the listing says. The id alone proves nothing --
+	// anyone can list the id of a plugin they did not write.
+	function _isListingOf(extension, addon) {
+		let url = extension.updateURL;
+		return !!Zotero.Prefs.get('paperlyExtensions.registryURL')
+			&& typeof url == 'string'
+			&& url.startsWith(Zotero.PaperlyExtensions.getRegistryURL())
+			&& addon.updateURL === url;
+	}
+
+
 	async function _parseVerified(bytes, signature) {
 		if (!await Zotero.PaperlyExtensions.verify(bytes, signature)) {
 			throw _error('signature', 'The marketplace index is not signed with the key Paperly trusts');

@@ -46,6 +46,7 @@ extensions-badge-blocked = Blocked
 extensions-badge-update = Update
 
 extensions-not-from-marketplace = Installed from outside the marketplace, so nothing has checked it.
+extensions-id-conflict = The marketplace lists a different extension with the same id. It can’t replace this one.
 extensions-blocked-banner = Paperly switched this extension off: { $reason }
 extensions-incompatible = No version of this extension runs in Paperly { $version }.
 
@@ -79,4 +80,5 @@ extensions-error-hash = The download didn’t match what the marketplace checked
 extensions-error-corrupt = The downloaded file is damaged.
 extensions-error-file-access = Paperly couldn’t write the extension to your profile.
 extensions-error-incompatible = No version of this extension runs in this Paperly.
+extensions-error-id-conflict = An extension with the same id is already installed from outside the marketplace, so this one wasn’t installed.
 extensions-error-other = The extension couldn’t be installed.
