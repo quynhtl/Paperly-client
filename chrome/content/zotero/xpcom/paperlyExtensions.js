@@ -41,8 +41,17 @@ Zotero.PaperlyExtensions = new function () {
 	
 	var { AddonManager } = ChromeUtils.importESModule("resource://gre/modules/AddonManager.sys.mjs");
 	
+	/**
+	 * The version of the extension API that docs/api.md in paperly-extensions
+	 * describes: registerView(), openWindow(), getContext(). Raised only for a
+	 * change that could break an extension written against an earlier one.
+	 */
+	this.apiVersion = 1;
+	
 	var _index = null;
 	var _listeners = new Set();
+	// The text last selected in a reader, as its selection popup reported it
+	var _lastSelection = null;
 	// key ('<pluginID>:<id>') -> view, in the order they were added
 	var _views = new Map();
 	var _checkTimer = null;
@@ -54,6 +63,16 @@ Zotero.PaperlyExtensions = new function () {
 		// An extension's views go when it stops, however it stops
 		Zotero.Plugins.addObserver({
 			shutdown: ({ id }) => this._removeViewsOf(id)
+		});
+		// Selecting text in the reader renders its selection popup; listening for
+		// that is how getContext() knows the selection. Nothing is added to the popup.
+		Zotero.Reader.registerEventListener('renderTextSelectionPopup', ({ reader, params }) => {
+			let annotation = (params && params.annotation) || {};
+			_lastSelection = {
+				tabID: reader.tabID,
+				text: annotation.text || '',
+				pageLabel: annotation.pageLabel || null
+			};
 		});
 		if (!this.isConfigured() || !Zotero.Prefs.get('paperlyExtensions.autoCheck')) {
 			return;
@@ -407,6 +426,40 @@ Zotero.PaperlyExtensions = new function () {
 				_notify('views');
 			}
 		};
+	};
+	
+	
+	/**
+	 * What the user is working on in the main window, for an extension's view to
+	 * act on: the items selected in the library -- or, when a reader tab is in
+	 * front, the item it shows -- and the text last selected in that reader.
+	 *
+	 * @return {{ items: Zotero.Item[], reader: null | {
+	 *     attachment: Zotero.Item, selectedText: String, pageLabel: String|null } }}
+	 */
+	this.getContext = function () {
+		let context = { items: [], reader: null };
+		let win = Zotero.getMainWindow();
+		if (!win || !win.Zotero_Tabs) {
+			return context;
+		}
+		let tabs = win.Zotero_Tabs;
+		if (tabs.selectedType == 'library') {
+			context.items = win.ZoteroPane.getSelectedItems();
+			return context;
+		}
+		let reader = Zotero.Reader.getByTabID(tabs.selectedID);
+		let attachment = reader && Zotero.Items.get(reader.itemID);
+		if (attachment) {
+			context.items = [attachment.parentItem || attachment];
+			let selection = _lastSelection && _lastSelection.tabID == reader.tabID ? _lastSelection : null;
+			context.reader = {
+				attachment,
+				selectedText: selection ? selection.text : '',
+				pageLabel: selection ? selection.pageLabel : null
+			};
+		}
+		return context;
 	};
 	
 	

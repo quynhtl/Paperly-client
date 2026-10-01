@@ -318,6 +318,47 @@ describe("Zotero.PaperlyExtensions", function () {
 		});
 	});
 	
+	describe("#getContext()", function () {
+		var win, zp;
+		
+		before(async function () {
+			win = await loadZoteroPane();
+			zp = win.ZoteroPane;
+		});
+		
+		it("should give the items selected in the library", async function () {
+			let item = await createDataObject('item', { title: 'Context test' });
+			await zp.selectItem(item.id);
+			let context = Zotero.PaperlyExtensions.getContext();
+			assert.sameMembers(context.items.map(i => i.id), [item.id]);
+			assert.isNull(context.reader);
+		});
+		
+		it("should give the reader's item and its selected text", async function () {
+			let parent = await createDataObject('item', { title: 'Paper' });
+			let attachment = await importFileAttachment('test.pdf', { parentID: parent.id });
+			let reader = await Zotero.Reader.open(attachment.id);
+			// What the reader does when text is selected
+			Zotero.Reader._dispatchEvent({
+				type: 'renderTextSelectionPopup',
+				reader,
+				doc: null,
+				params: { annotation: { text: 'a sentence worth keeping', pageLabel: '3' } },
+				append() {}
+			});
+			let context = Zotero.PaperlyExtensions.getContext();
+			assert.equal(context.items[0].id, parent.id);
+			assert.equal(context.reader.attachment.id, attachment.id);
+			assert.equal(context.reader.selectedText, 'a sentence worth keeping');
+			assert.equal(context.reader.pageLabel, '3');
+			win.Zotero_Tabs.close(reader.tabID);
+		});
+		
+		it("should say which API version it is", function () {
+			assert.equal(Zotero.PaperlyExtensions.apiVersion, 1);
+		});
+	});
+	
 	describe("Extensions window", function () {
 		var win;
 		
