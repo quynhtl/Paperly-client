@@ -739,13 +739,14 @@ var Zotero_Paperly_Extensions = {
 			return;
 		}
 		// A first install says what the extension does; an update only what
-		// this version does that the installed one did not. A version the
-		// marketplace does not list could have done anything, so from one of
-		// those everything counts as new, and the update is always confirmed --
-		// as it is when the extension now comes from someone else.
+		// this version does that the user has not agreed to the installed one
+		// doing. A version the marketplace does not list could have done
+		// anything, so from one of those everything counts as new, and the
+		// update is always confirmed -- as it is when the extension now comes
+		// from someone else.
 		let installed = addon && extension.versions.find(v => v.version == addon.version);
 		let unlisted = !!addon && !installed;
-		let usedBefore = (installed && installed.uses) || [];
+		let usedBefore = installed ? Zotero.PaperlyExtensions.getAgreedUses(extension, addon) : [];
 		let newUses = (release.uses || []).filter(use => !usedBefore.includes(use));
 		let confirm = !update || unlisted || newUses.length || entry.previousPublisher;
 		if (confirm && !await this._confirm(entry, release, { update, newUses })) {

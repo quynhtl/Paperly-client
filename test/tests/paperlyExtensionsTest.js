@@ -367,6 +367,25 @@ describe("Zotero.PaperlyExtensions", function () {
 			assert.equal((await AddonManager.getAddonByID(ID)).version, '1.0');
 		});
 		
+		it("should refuse one that uses more than agreed to, though the index now lists the installed version using it", async function () {
+			let first = await makeExtension('1.0');
+			await publish(makeIndex([{ ...first, uses: ['files'] }]));
+			await Zotero.PaperlyExtensions.refresh();
+			await Zotero.PaperlyExtensions.install(ID);
+			await waitForVersion('1.0');
+			// The publisher puts out 1.0 again, now reading passwords, which the
+			// index lists in place of the one installed -- and then 1.1
+			let again = await makeExtension('1.0');
+			let update = await makeExtension('1.1');
+			await publish(makeIndex([
+				{ ...update, uses: ['files', 'passwords'] },
+				{ ...again, uses: ['files', 'passwords'] }
+			]));
+			await Zotero.PaperlyExtensions.refresh();
+			assert.equal(await installDirectly(update), 'cancelled');
+			assert.equal((await AddonManager.getAddonByID(ID)).version, '1.0');
+		});
+		
 		it("should leave to the user a file installed by hand", async function () {
 			await installFirst();
 			// A developer's own build, which the marketplace has never seen
@@ -745,6 +764,33 @@ describe("Zotero.PaperlyExtensions", function () {
 			let update = await waitFor(() => doc.querySelector('.details-actions [data-l10n-id="extensions-update"]'));
 			update.click();
 			assert.isFalse(doc.getElementById('confirm').hidden);
+			doc.getElementById('confirm-cancel').click();
+			await Zotero.Promise.delay(200);
+			assert.equal((await AddonManager.getAddonByID(ID)).version, '1.0');
+		});
+		
+		it("should confirm an update that uses more than agreed to, though the index now lists the installed version using it", async function () {
+			let first = await makeExtension('1.0');
+			await publish(makeIndex([{ ...first, uses: ['files'] }]));
+			await Zotero.PaperlyExtensions.refresh();
+			await Zotero.PaperlyExtensions.install(ID);
+			await waitForVersion('1.0');
+			// 1.0 put out again, reading passwords, and listed in place of the one installed
+			await publish(makeIndex([
+				{ ...await makeExtension('1.1'), uses: ['files', 'passwords'] },
+				{ ...await makeExtension('1.0'), uses: ['files', 'passwords'] }
+			]));
+			await Zotero.PaperlyExtensions.refresh();
+			let opened = waitForWindow('chrome://zotero/content/paperlyExtensions.xhtml');
+			Zotero.PaperlyExtensions.openWindow({ extensionID: ID });
+			win = await opened;
+			let doc = win.document;
+			
+			let update = await waitFor(() => doc.querySelector('.details-actions [data-l10n-id="extensions-update"]'));
+			update.click();
+			assert.isFalse(doc.getElementById('confirm').hidden);
+			let newUses = [...doc.querySelectorAll('#confirm-body .uses li')].map(li => li.getAttribute('data-use'));
+			assert.deepEqual(newUses, ['passwords']);
 			doc.getElementById('confirm-cancel').click();
 			await Zotero.Promise.delay(200);
 			assert.equal((await AddonManager.getAddonByID(ID)).version, '1.0');

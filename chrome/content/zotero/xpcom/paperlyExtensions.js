@@ -332,6 +332,37 @@ Zotero.PaperlyExtensions = new function () {
 	
 	
 	/**
+	 * What the user agreed to an installed marketplace extension using, which
+	 * an update to it is judged by -- in the add-on manager's own updates and
+	 * the Extensions window alike -- so that only what it uses beyond that is
+	 * asked about. That is what was recorded when install() put it there, and
+	 * not what the index lists for the installed version now: a publisher can
+	 * put out the same version again, using more, and have it listed in place
+	 * of the one installed. Without a record (the extension shipped with
+	 * Paperly, say), what the index lists for that version, or once it no
+	 * longer does, what the listing declares, which a first install shows.
+	 *
+	 * @param {Object} extension - Its listing
+	 * @param {Addon} addon
+	 * @return {String[]}
+	 */
+	this.getAgreedUses = function (extension, addon) {
+		let agreed = _getPrefObject('paperlyExtensions.agreedUses')[addon.id];
+		if (Array.isArray(agreed)) {
+			return agreed;
+		}
+		let installed = extension.versions.find(v => v.version == addon.version);
+		if (installed) {
+			return installed.uses || [];
+		}
+		let declares = extension.declares || {};
+		return Object.keys(declares).filter(
+			key => (Array.isArray(declares[key]) ? declares[key].length > 0 : declares[key] === true)
+		);
+	};
+	
+	
+	/**
 	 * Installs, or updates to, the newest version of a listed extension that
 	 * this Paperly can run.
 	 *
@@ -671,33 +702,12 @@ Zotero.PaperlyExtensions = new function () {
 		if (hash != String(release.sha256).toLowerCase()) {
 			return 'the file is not the one the marketplace lists';
 		}
-		let usedBefore = _getUsedBefore(extension, existing);
+		let usedBefore = Zotero.PaperlyExtensions.getAgreedUses(extension, existing);
 		let newUses = (release.uses || []).filter(use => !usedBefore.includes(use));
 		if (newUses.length) {
 			return `it also uses ${newUses.join(', ')}, which the user has not agreed to`;
 		}
 		return null;
-	}
-	
-	
-	// What the installed version of a marketplace extension uses, as far as the
-	// user agreed to it: as the index lists that version, or -- once it no
-	// longer does, being blocked, or some releases behind -- as recorded when
-	// install() put it there. Without either (the extension shipped with
-	// Paperly, say), what its listing declares, which a first install shows.
-	function _getUsedBefore(extension, addon) {
-		let installed = extension.versions.find(v => v.version == addon.version);
-		if (installed) {
-			return installed.uses || [];
-		}
-		let agreed = _getPrefObject('paperlyExtensions.agreedUses')[addon.id];
-		if (Array.isArray(agreed)) {
-			return agreed;
-		}
-		let declares = extension.declares || {};
-		return Object.keys(declares).filter(
-			key => (Array.isArray(declares[key]) ? declares[key].length > 0 : declares[key] === true)
-		);
 	}
 	
 	
