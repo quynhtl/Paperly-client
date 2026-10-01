@@ -209,6 +209,9 @@ Zotero.PaperlyExtensions = new function () {
 			// The marketplace has no business with anyone's cookies
 			anon: true,
 			errorDelayMax: 0,
+			// A 429 or 503 with Retry-After is otherwise retried without end,
+			// and the window would say it is checking for as long
+			noRetryOnThrottle: true,
 			timeout: 30000
 		};
 		let indexRequest, signatureRequest;

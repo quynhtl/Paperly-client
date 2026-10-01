@@ -233,6 +233,23 @@ describe("Zotero.PaperlyExtensions", function () {
 			await publish(late);
 			assert.equal((await Zotero.PaperlyExtensions.refresh()).generated, late.generated);
 		});
+
+		it("should give up on a throttled marketplace rather than wait to retry", async function () {
+			await publish(makeIndex([]));
+			httpd.registerPathHandler('/index.json', (request, response) => {
+				response.setStatusLine(null, 503, 'Service Unavailable');
+				response.setHeader('Retry-After', '60');
+			});
+			try {
+				let start = Date.now();
+				let error = await getPromiseError(Zotero.PaperlyExtensions.refresh());
+				assert.equal(error.code, 'network');
+				assert.isBelow(Date.now() - start, 10000);
+			}
+			finally {
+				httpd.registerPathHandler('/index.json', null);
+			}
+		});
 	});
 	
 	describe("#getCompatibleVersion()", function () {

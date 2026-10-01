@@ -148,6 +148,7 @@ var Zotero_Paperly_Extensions = {
 			this.refresh();
 		}
 		else {
+			Zotero.debug('Paperly extensions: checked under an hour ago, not checking again');
 			this._setCheckedStatus();
 		}
 		this._search.focus();
