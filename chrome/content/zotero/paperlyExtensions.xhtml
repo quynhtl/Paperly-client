@@ -1,0 +1,82 @@
+<?xml version="1.0"?>
+<!--
+    ***** BEGIN LICENSE BLOCK *****
+
+    This file is part of Paperly, a fork of Zotero.
+
+    Zotero is free software: you can redistribute it and/or modify
+    it under the terms of the GNU Affero General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    Zotero is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU Affero General Public License for more details.
+
+    You should have received a copy of the GNU Affero General Public License
+    along with Zotero.  If not, see <http://www.gnu.org/licenses/>.
+
+    ***** END LICENSE BLOCK *****
+-->
+<?xml-stylesheet href="chrome://global/skin/" type="text/css"?>
+<?xml-stylesheet href="chrome://zotero/skin/zotero.css" type="text/css"?>
+<?xml-stylesheet href="chrome://zotero/skin/paperlyExtensions.css" type="text/css"?>
+<?xml-stylesheet href="chrome://zotero-platform/content/zotero.css" type="text/css"?>
+
+<!--
+  Paperly's Extensions window: the marketplace and what is installed. A window
+  of its own, so nothing in the main window changes. Everything inside is
+  built by paperlyExtensionsWindow.js.
+-->
+<window
+	xmlns="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul"
+	xmlns:html="http://www.w3.org/1999/xhtml"
+	id="zotero-paperly-extensions-window"
+	windowtype="zotero:paperly-extensions"
+	data-l10n-id="paperly-extensions-window"
+	width="1000"
+	height="660"
+	persist="screenX screenY width height"
+	onload="Zotero_Paperly_Extensions.init()"
+	onunload="Zotero_Paperly_Extensions.destroy()">
+	<linkset>
+		<html:link rel="localization" href="branding/brand.ftl"/>
+		<html:link rel="localization" href="zotero.ftl"/>
+		<html:link rel="localization" href="paperlyExtensions.ftl"/>
+	</linkset>
+
+	<script src="include.js"/>
+	<script src="paperlyExtensionsWindow.js"/>
+
+	<html:div id="extensions">
+		<html:nav id="activity-bar" role="tablist" aria-orientation="vertical">
+			<html:button id="activity-manager" class="activity" role="tab" aria-selected="true"
+					data-l10n-id="extensions-activity-manager"/>
+		</html:nav>
+
+		<html:div id="manager" role="tabpanel">
+			<html:aside id="sidebar">
+				<html:div id="sidebar-header">
+					<html:h1 data-l10n-id="extensions-heading"/>
+					<html:button id="refresh" class="icon-button" data-l10n-id="extensions-refresh"/>
+				</html:div>
+				<html:input id="search" type="search" data-l10n-id="extensions-search"/>
+				<html:div id="list" role="listbox" tabindex="0"/>
+				<html:div id="status" role="status"/>
+			</html:aside>
+			<html:main id="details" tabindex="-1"/>
+		</html:div>
+	</html:div>
+
+	<html:div id="confirm" hidden="true" role="dialog" aria-modal="true" aria-labelledby="confirm-title">
+		<html:div id="confirm-box">
+			<html:h2 id="confirm-title"/>
+			<html:div id="confirm-body"/>
+			<html:div id="confirm-actions">
+				<html:button id="confirm-cancel" data-l10n-id="extensions-cancel"/>
+				<html:button id="confirm-ok" class="primary"/>
+			</html:div>
+		</html:div>
+	</html:div>
+</window>

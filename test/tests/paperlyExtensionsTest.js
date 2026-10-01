@@ -281,6 +281,69 @@ describe("Zotero.PaperlyExtensions", function () {
 		});
 	});
 	
+	describe("Extensions window", function () {
+		var win;
+		
+		async function waitFor(check) {
+			for (let i = 0; i < 100; i++) {
+				let result = check();
+				if (result) {
+					return result;
+				}
+				await Zotero.Promise.delay(50);
+			}
+			throw new Error('Timed out');
+		}
+		
+		afterEach(function () {
+			if (win && !win.closed) {
+				win.close();
+			}
+		});
+		
+		it("should show the marketplace, and install after the confirmation", async function () {
+			await publish(makeIndex([await makeExtension('1.0.0')]));
+			await Zotero.PaperlyExtensions.refresh();
+			let opened = waitForWindow('chrome://zotero/content/paperlyExtensions.xhtml');
+			Zotero.PaperlyExtensions.openWindow({ extensionID: ID });
+			win = await opened;
+			let doc = win.document;
+			
+			let item = await waitFor(() => doc.querySelector(`.item[data-id="${ID}"]`));
+			assert.equal(item.getAttribute('aria-selected'), 'true');
+			assert.equal(doc.querySelector('#details h2').textContent, 'Paperly Extensions Test');
+			
+			doc.querySelector('.details-actions button.primary').click();
+			assert.isFalse(doc.getElementById('confirm').hidden);
+			doc.getElementById('confirm-ok').click();
+			await waitForVersion('1.0.0');
+			
+			// Now listed as installed, with Uninstall in place of Install
+			let uninstall = await waitFor(() => [...doc.querySelectorAll('.details-actions button')]
+				.find(button => button.getAttribute('data-l10n-id') == 'extensions-uninstall'));
+			assert.ok(uninstall);
+			uninstall.click();
+			await waitForVersion(undefined);
+			assert.isNull(await AddonManager.getAddonByID(ID));
+		});
+		
+		it("should install nothing when the confirmation is cancelled", async function () {
+			await publish(makeIndex([await makeExtension('1.0.0')]));
+			await Zotero.PaperlyExtensions.refresh();
+			let opened = waitForWindow('chrome://zotero/content/paperlyExtensions.xhtml');
+			Zotero.PaperlyExtensions.openWindow({ extensionID: ID });
+			win = await opened;
+			let doc = win.document;
+			
+			await waitFor(() => doc.querySelector(`.item[data-id="${ID}"]`));
+			doc.querySelector('.details-actions button.primary').click();
+			doc.getElementById('confirm-cancel').click();
+			assert.isTrue(doc.getElementById('confirm').hidden);
+			await Zotero.Promise.delay(200);
+			assert.isNull(await AddonManager.getAddonByID(ID));
+		});
+	});
+	
 	describe("#uninstall()", function () {
 		it("should remove the extension and stop it", async function () {
 			await publish(makeIndex([await makeExtension('1.0')]));

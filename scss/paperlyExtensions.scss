@@ -1,0 +1,654 @@
+@import "abstracts/variables";
+@import "abstracts/functions";
+@import "abstracts/mixins";
+
+@import "themes/light";
+@import "themes/dark";
+
+// Paperly's Extensions window
+// --------------------------------------------------
+
+$activity-width: 48px;
+$sidebar-width: 320px;
+
+$icon-extensions: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.6' stroke-linejoin='round'%3E%3Crect x='3' y='13' width='7' height='7' rx='1'/%3E%3Crect x='11' y='13' width='7' height='7' rx='1'/%3E%3Crect x='3' y='5' width='7' height='7' rx='1'/%3E%3Crect x='13.5' y='3' width='7' height='7' rx='1'/%3E%3C/svg%3E";
+$icon-refresh: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='black' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M13 8a5 5 0 1 1-1.5-3.5'/%3E%3Cpath d='M13 2.5v3h-3'/%3E%3C/svg%3E";
+$icon-check: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M8 1l1.8 1.3 2.2-.1.7 2.1 1.8 1.3-.7 2.1.7 2.1-1.8 1.3-.7 2.1-2.2-.1L8 15l-1.8-1.3-2.2.1-.7-2.1L1.5 10.4l.7-2.1-.7-2.1 1.8-1.3.7-2.1 2.2.1z' fill='black'/%3E%3Cpath d='M5.2 8.2l1.9 1.9 3.8-3.8' fill='none' stroke='white' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E";
+$icon-warning: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M8 1.5l7 12.5H1z' fill='black'/%3E%3C/svg%3E";
+$icon-info: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ccircle cx='8' cy='8' r='6.5' fill='black'/%3E%3C/svg%3E";
+
+// The window keeps the platform's dialog colour unless told otherwise
+#zotero-paperly-extensions-window {
+	appearance: none;
+	display: flex;
+	background-color: var(--material-background);
+	color: var(--fill-primary);
+	font-size: 13px;
+}
+
+#extensions {
+	display: flex;
+	flex: 1;
+	min-width: 0;
+	min-height: 0;
+}
+
+// Buttons, the same everywhere in the window. The platform stylesheet caps a
+// button at 25px and nudges it with negative margins; none of that here.
+#extensions button,
+#confirm button {
+	max-height: none;
+	margin: 0;
+}
+
+#extensions button:not(.activity, .icon-button, .link),
+#confirm button {
+	appearance: none;
+	padding: 4px 12px;
+	border: 1px solid var(--color-border);
+	border-radius: 5px;
+	background: var(--material-button);
+	color: var(--fill-primary);
+	font: inherit;
+	white-space: nowrap;
+
+	&:hover:not(:disabled) {
+		background: var(--fill-quinary);
+	}
+
+	&.primary {
+		border-color: transparent;
+		background: var(--accent-blue);
+		color: var(--accent-white);
+
+		&:hover:not(:disabled) {
+			background: var(--accent-blue);
+			filter: brightness(1.1);
+		}
+	}
+
+	&:disabled {
+		opacity: 0.5;
+	}
+
+	&:focus-visible {
+		outline: 2px solid var(--accent-blue50);
+		outline-offset: 1px;
+	}
+}
+
+// The activity bar: the marketplace, and later the views extensions add
+#activity-bar {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 4px;
+	width: $activity-width;
+	flex-shrink: 0;
+	padding-top: 8px;
+	background: var(--material-tabbar);
+	border-inline-end: 1px solid var(--color-panedivider);
+}
+
+.activity {
+	appearance: none;
+	position: relative;
+	width: 40px;
+	height: 40px;
+	padding: 0;
+	border: 0;
+	border-radius: 8px;
+	background: transparent;
+	color: var(--fill-secondary);
+
+	&::before {
+		content: "";
+		position: absolute;
+		inset: 9px;
+		background: currentColor;
+		mask: center / contain no-repeat;
+	}
+
+	&:hover {
+		color: var(--fill-primary);
+	}
+
+	&[aria-selected="true"] {
+		color: var(--fill-primary);
+
+		&::after {
+			content: "";
+			position: absolute;
+			inset-inline-start: -4px;
+			top: 9px;
+			bottom: 9px;
+			width: 2px;
+			border-radius: 1px;
+			background: var(--accent-blue);
+		}
+	}
+
+	&:focus-visible {
+		outline: 2px solid var(--accent-blue50);
+	}
+}
+
+#activity-manager::before {
+	mask-image: url($icon-extensions);
+}
+
+// The sidebar: search, then what is installed, then the marketplace
+#manager {
+	display: flex;
+	flex: 1;
+	min-width: 0;
+	min-height: 0;
+}
+
+#sidebar {
+	display: flex;
+	flex-direction: column;
+	width: $sidebar-width;
+	flex-shrink: 0;
+	background: var(--material-sidepane);
+	border-inline-end: 1px solid var(--color-panedivider);
+}
+
+#sidebar-header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	padding: 12px 10px 8px 16px;
+
+	h1 {
+		margin: 0;
+		font-size: 11px;
+		font-weight: 600;
+		letter-spacing: 0.06em;
+		text-transform: uppercase;
+		color: var(--fill-secondary);
+	}
+}
+
+.icon-button {
+	appearance: none;
+	position: relative;
+	width: 24px;
+	height: 24px;
+	padding: 0;
+	border: 0;
+	border-radius: 5px;
+	background: transparent;
+	color: var(--fill-secondary);
+
+	&::before {
+		content: "";
+		position: absolute;
+		inset: 4px;
+		background: currentColor;
+		mask: center / contain no-repeat;
+	}
+
+	&:hover:not(:disabled) {
+		background: var(--fill-quinary);
+		color: var(--fill-primary);
+	}
+
+	&:disabled {
+		opacity: 0.5;
+	}
+}
+
+#refresh::before {
+	mask-image: url($icon-refresh);
+}
+
+#search {
+	margin: 0 12px 6px;
+	padding: 5px 8px;
+	border: 1px solid var(--color-border);
+	border-radius: 6px;
+	background: var(--material-background);
+	color: var(--fill-primary);
+	font: inherit;
+
+	&:focus {
+		outline: 2px solid var(--accent-blue50);
+		outline-offset: -1px;
+	}
+}
+
+#list {
+	flex: 1;
+	overflow-y: auto;
+	padding-bottom: 8px;
+	outline: none;
+}
+
+.section-header {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	padding: 12px 12px 4px 16px;
+	font-size: 11px;
+	font-weight: 600;
+	letter-spacing: 0.06em;
+	text-transform: uppercase;
+	color: var(--fill-secondary);
+
+	.count {
+		margin-inline-start: auto;
+		padding: 0 6px;
+		border-radius: 8px;
+		background: var(--fill-quinary);
+		font-weight: 500;
+		letter-spacing: 0;
+	}
+}
+
+.empty {
+	margin: 4px 16px 8px;
+	color: var(--fill-secondary);
+}
+
+.item {
+	display: flex;
+	align-items: flex-start;
+	gap: 10px;
+	padding: 8px 12px 8px 16px;
+
+	&:hover {
+		background: var(--fill-senary);
+	}
+
+	&[aria-selected="true"] {
+		background: var(--fill-quinary);
+	}
+
+	&[data-state] :is(.item-icon, .item-text) {
+		opacity: 0.55;
+	}
+}
+
+#list:focus-visible .item[aria-selected="true"] {
+	outline: 1px solid var(--accent-blue);
+	outline-offset: -1px;
+}
+
+.item-icon {
+	width: 36px;
+	height: 36px;
+	flex-shrink: 0;
+	border-radius: 8px;
+	object-fit: contain;
+
+	&.letter {
+		font-size: 16px;
+	}
+}
+
+.letter {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	background: hsl(var(--letter-hue, 210) 42% 46%);
+	color: #fff;
+	font-weight: 600;
+}
+
+.item-text {
+	display: flex;
+	flex: 1;
+	flex-direction: column;
+	gap: 2px;
+	min-width: 0;
+}
+
+.item-title {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+}
+
+.item-name,
+.item-description {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.item-name {
+	font-weight: 600;
+}
+
+.item-description,
+.item-publisher,
+.item-busy {
+	color: var(--fill-secondary);
+}
+
+.item-publisher {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	font-size: 12px;
+}
+
+#extensions .item-action {
+	flex-shrink: 0;
+	align-self: center;
+	padding: 1px 8px;
+	font-size: 12px;
+}
+
+.item-busy {
+	flex-shrink: 0;
+	align-self: center;
+	font-size: 12px;
+}
+
+.badge {
+	flex-shrink: 0;
+	padding: 0 6px;
+	border-radius: 4px;
+	background: var(--fill-quinary);
+	color: var(--fill-secondary);
+	font-size: 11px;
+
+	&.blocked {
+		background: var(--accent-red);
+		color: var(--accent-white);
+	}
+}
+
+.publisher-badge {
+	display: inline-flex;
+	align-items: center;
+	gap: 3px;
+	color: var(--fill-secondary);
+
+	&.verified {
+		color: var(--accent-blue);
+
+		&::before {
+			content: "";
+			width: 13px;
+			height: 13px;
+			background: currentColor;
+			mask: url($icon-check) center / contain no-repeat;
+		}
+	}
+}
+
+#status {
+	min-height: 18px;
+	padding: 8px 16px;
+	border-top: 1px solid var(--color-border50);
+	color: var(--fill-secondary);
+	font-size: 12px;
+}
+
+button.link {
+	appearance: none;
+	padding: 0;
+	border: 0;
+	background: none;
+	color: var(--accent-blue);
+	font: inherit;
+	text-decoration: underline;
+}
+
+// The details of the selected extension
+#details {
+	flex: 1;
+	min-width: 0;
+	overflow-y: auto;
+	padding: 24px 32px 32px;
+	outline: none;
+
+	section {
+		margin-top: 22px;
+	}
+
+	h3 {
+		margin: 0 0 8px;
+		font-size: 11px;
+		font-weight: 600;
+		letter-spacing: 0.06em;
+		text-transform: uppercase;
+		color: var(--fill-secondary);
+	}
+}
+
+.placeholder {
+	margin-top: 30vh;
+	text-align: center;
+	color: var(--fill-secondary);
+}
+
+.details-header {
+	display: flex;
+	align-items: flex-start;
+	gap: 18px;
+	margin-bottom: 16px;
+}
+
+.details-icon {
+	width: 72px;
+	height: 72px;
+	flex-shrink: 0;
+	border-radius: 14px;
+	object-fit: contain;
+
+	&.letter {
+		font-size: 30px;
+	}
+}
+
+.details-heading {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+	min-width: 0;
+
+	h2 {
+		margin: 0;
+		font-size: 22px;
+		font-weight: 600;
+	}
+}
+
+.details-meta {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 4px 12px;
+	color: var(--fill-secondary);
+
+	.publisher-name {
+		color: var(--fill-primary);
+	}
+}
+
+.details-actions {
+	display: flex;
+	gap: 8px;
+	margin-top: 6px;
+}
+
+.details-progress {
+	display: block;
+	width: 100%;
+	height: 4px;
+	margin: 0 0 12px;
+}
+
+.banner {
+	margin: 0 0 12px;
+	padding: 8px 12px;
+	border: 1px solid;
+	border-radius: 6px;
+	line-height: 1.45;
+
+	&.error {
+		border-color: color-mix(in srgb, var(--accent-red) 55%, transparent);
+		background: color-mix(in srgb, var(--accent-red) 12%, transparent);
+	}
+
+	&.warning {
+		border-color: color-mix(in srgb, var(--accent-yellow) 55%, transparent);
+		background: color-mix(in srgb, var(--accent-yellow) 12%, transparent);
+	}
+}
+
+.description {
+	margin: 0;
+	font-size: 14px;
+	line-height: 1.5;
+}
+
+.uses,
+.findings {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+	margin: 0;
+	padding: 0;
+	list-style: none;
+
+	li {
+		position: relative;
+		padding-inline-start: 22px;
+		line-height: 1.45;
+
+		&::before {
+			content: "";
+			position: absolute;
+			inset-inline-start: 4px;
+			top: 7px;
+			width: 6px;
+			height: 6px;
+			border-radius: 50%;
+			background: var(--fill-tertiary);
+		}
+	}
+}
+
+// What can reach the user's data or the computer stands out
+.uses li:is([data-use="sendsContent"], [data-use="cookies"], [data-use="passwords"], [data-use="programs"])::before {
+	background: var(--accent-orange);
+}
+
+.findings li {
+	&[data-level="warning"]::before {
+		inset-inline-start: 1px;
+		top: 3px;
+		width: 13px;
+		height: 12px;
+		border-radius: 0;
+		background: var(--accent-yellow);
+		mask: url($icon-warning) center / contain no-repeat;
+	}
+
+	&[data-level="notice"] {
+		color: var(--fill-secondary);
+
+		&::before {
+			mask: url($icon-info) center / contain no-repeat;
+		}
+	}
+}
+
+.caveat,
+.muted {
+	color: var(--fill-secondary);
+}
+
+.caveat {
+	margin: 12px 0 0;
+	font-size: 12px;
+	line-height: 1.45;
+}
+
+.muted {
+	margin: 0;
+}
+
+.versions {
+	border-collapse: collapse;
+
+	td {
+		padding: 3px 18px 3px 0;
+		color: var(--fill-secondary);
+
+		&:first-child {
+			color: var(--fill-primary);
+			font-variant-numeric: tabular-nums;
+		}
+	}
+}
+
+.links {
+	display: flex;
+	gap: 18px;
+	margin-top: 26px;
+
+	a {
+		color: var(--accent-blue);
+		text-decoration: none;
+
+		&:hover {
+			text-decoration: underline;
+		}
+	}
+}
+
+// The install confirmation, over the whole window
+#confirm {
+	position: fixed;
+	inset: 0;
+	z-index: 10;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	background: rgb(0 0 0 / 0.35);
+
+	&[hidden] {
+		display: none;
+	}
+}
+
+#confirm-box {
+	width: 460px;
+	max-height: 80vh;
+	overflow-y: auto;
+	padding: 20px 22px;
+	border: 1px solid var(--color-border);
+	border-radius: 10px;
+	background: var(--material-background);
+	color: var(--fill-primary);
+	box-shadow: 0 12px 40px rgb(0 0 0 / 0.35);
+
+	h2 {
+		margin: 0 0 12px;
+		font-size: 16px;
+		font-weight: 600;
+	}
+
+	p {
+		margin: 10px 0 6px;
+	}
+
+	.publisher {
+		display: flex;
+		align-items: center;
+		gap: 8px;
+	}
+}
+
+#confirm-actions {
+	display: flex;
+	justify-content: flex-end;
+	gap: 8px;
+	margin-top: 18px;
+}

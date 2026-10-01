@@ -149,6 +149,8 @@ menu-deletePermanently =
 
 menu-tools-plugins =
     .label = Plugins
+menu-tools-extensions =
+    .label = Extensions…
 
 menu-view-columns-move-left =
     .label = Move Column Left

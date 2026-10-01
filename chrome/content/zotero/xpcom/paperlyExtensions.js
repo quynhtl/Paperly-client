@@ -36,8 +36,8 @@ Zotero.PaperlyExtensions = new function () {
 	const FIRST_CHECK_DELAY = 60 * 1000;
 	const CHECK_TICK = 60 * 60 * 1000;
 	const CACHE_DIR_NAME = 'paperly-extensions';
-	const KEY_ALGORITHM = { name: 'ECDSA', namedCurve: 'P-256' };
-	const SIGNATURE_ALGORITHM = { name: 'ECDSA', hash: 'SHA-256' };
+	let KEY_ALGORITHM = { name: 'ECDSA', namedCurve: 'P-256' };
+	let SIGNATURE_ALGORITHM = { name: 'ECDSA', hash: 'SHA-256' };
 	
 	var { AddonManager } = ChromeUtils.importESModule("resource://gre/modules/AddonManager.sys.mjs");
 	
@@ -320,6 +320,33 @@ Zotero.PaperlyExtensions = new function () {
 				addon,
 				extension: (index && index.extensions.find(x => x.id == addon.id)) || null
 			}));
+	};
+	
+	
+	/**
+	 * Opens the Extensions window, or brings it forward.
+	 *
+	 * @param {Object} [options]
+	 * @param {String} [options.extensionID] - Show this extension's details
+	 */
+	this.openWindow = function ({ extensionID } = {}) {
+		let win = Services.wm.getMostRecentWindow('zotero:paperly-extensions');
+		if (win) {
+			win.focus();
+			if (extensionID) {
+				win.Zotero_Paperly_Extensions.select(extensionID);
+			}
+			return win;
+		}
+		let args = { extensionID };
+		args.wrappedJSObject = args;
+		return Services.ww.openWindow(
+			null,
+			'chrome://zotero/content/paperlyExtensions.xhtml',
+			'_blank',
+			'chrome,resizable,centerscreen,dialog=no',
+			args
+		);
 	};
 	
 	
