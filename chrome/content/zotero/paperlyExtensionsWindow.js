@@ -399,7 +399,9 @@ var Zotero_Paperly_Extensions = {
 			this._list.append(...marketplaceShown.map(entry => this._renderItem(entry)));
 		}
 		else if (!this._query && this._index) {
-			this._list.append(h('p', { class: 'empty', l10n: { id: 'extensions-none-listed' } }));
+			// The index leaves out delisted extensions, so anything in it is listed
+			let l10nID = this._index.extensions.length ? 'extensions-all-installed' : 'extensions-none-listed';
+			this._list.append(h('p', { class: 'empty', l10n: { id: l10nID } }));
 		}
 		
 		if (this._query && !installedShown.length && !marketplaceShown.length) {

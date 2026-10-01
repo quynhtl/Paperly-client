@@ -22,6 +22,7 @@ extensions-status-stale = The marketplace hasn’t been updated for over a week,
 extensions-status-retry = Try again
 extensions-no-results = No extensions match “{ $query }”.
 extensions-none-listed = No extensions are listed yet.
+extensions-all-installed = Everything in the marketplace is already installed.
 extensions-none-installed = No extensions installed.
 extensions-pick-one = Select an extension to see what it does.
 

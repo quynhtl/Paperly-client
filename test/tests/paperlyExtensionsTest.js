@@ -766,6 +766,25 @@ describe("Zotero.PaperlyExtensions", function () {
 			assert.isNull(await AddonManager.getAddonByID(ID));
 		});
 		
+		it("should tell a marketplace with everything installed from an empty one", async function () {
+			await publish(makeIndex([await makeExtension('1.0.0')]));
+			await Zotero.PaperlyExtensions.refresh();
+			await Zotero.PaperlyExtensions.install(ID);
+			await waitForVersion('1.0.0');
+			let opened = waitForWindow('chrome://zotero/content/paperlyExtensions.xhtml');
+			Zotero.PaperlyExtensions.openWindow();
+			win = await opened;
+			let doc = win.document;
+			let empty = () => [...doc.querySelectorAll('#list .empty')].map(p => p.getAttribute('data-l10n-id'));
+			await waitFor(() => empty().includes('extensions-all-installed'));
+
+			// The listing goes; the window hears of the new index and says so
+			await publish({ ...makeIndex([]), extensions: [] });
+			await Zotero.PaperlyExtensions.refresh();
+			await waitFor(() => empty().includes('extensions-none-listed'));
+			assert.notInclude(empty(), 'extensions-all-installed');
+		});
+
 		it("should show an extension's view, and take it away when the extension stops", async function () {
 			delete Zotero.PaperlyExtensionsTestViewDestroyed;
 			await publish(makeIndex([await makeExtension('1.0.0', { withView: true })]));
