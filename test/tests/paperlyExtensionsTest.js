@@ -180,6 +180,7 @@ describe("Zotero.PaperlyExtensions", function () {
 				PathUtils.join(PathUtils.profileDir, 'paperly-extensions', 'index.json')
 			));
 			assert.isAbove(Zotero.Prefs.get('paperlyExtensions.lastCheck'), 0);
+			assert.equal(Zotero.Prefs.get('paperlyExtensions.lastGenerated'), index.generated);
 		});
 		
 		it("should refuse an index whose signature does not match", async function () {
@@ -199,7 +200,25 @@ describe("Zotero.PaperlyExtensions", function () {
 		});
 		
 		it("should refuse an older index than the one already seen", async function () {
-			await publish(makeIndex([], { generated: new Date(2020, 0, 1) }));
+			await publish(makeIndex([]));
+			await Zotero.PaperlyExtensions.refresh();
+			await publish(makeIndex([], { generated: new Date(Date.now() - 60 * 60 * 1000) }));
+			let error = await getPromiseError(Zotero.PaperlyExtensions.refresh());
+			assert.equal(error.code, 'stale');
+		});
+		
+		it("should refuse an older index than the newest accepted, with no copy kept", async function () {
+			let index = makeIndex([]);
+			await publish(index);
+			// A newer one was accepted, and its copy has since gone
+			Zotero.Prefs.set('paperlyExtensions.lastGenerated', new Date(Date.parse(index.generated) + 1000).toISOString());
+			await IOUtils.remove(PathUtils.join(PathUtils.profileDir, 'paperly-extensions'), { recursive: true });
+			let error = await getPromiseError(Zotero.PaperlyExtensions.refresh());
+			assert.equal(error.code, 'stale');
+		});
+		
+		it("should refuse an index generated more than 45 days ago", async function () {
+			await publish(makeIndex([], { generated: new Date(Date.now() - 46 * 24 * 60 * 60 * 1000) }));
 			let error = await getPromiseError(Zotero.PaperlyExtensions.refresh());
 			assert.equal(error.code, 'stale');
 		});

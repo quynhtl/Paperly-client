@@ -45,6 +45,9 @@ Zotero.PaperlyExtensions = new function () {
 	const FIRST_CHECK_DELAY = 60 * 1000;
 	const CHECK_TICK = 60 * 60 * 1000;
 	const CACHE_DIR_NAME = 'paperly-extensions';
+	// The marketplace publishes an index every few hours, so one older than this
+	// is a replay, however well signed -- or a marketplace that has stopped
+	const MAX_INDEX_AGE = 45 * 24 * 60 * 60 * 1000;
 	let KEY_ALGORITHM = { name: 'ECDSA', namedCurve: 'P-256' };
 	let SIGNATURE_ALGORITHM = { name: 'ECDSA', hash: 'SHA-256' };
 	
@@ -189,17 +192,28 @@ Zotero.PaperlyExtensions = new function () {
 		let index = await _parseVerified(bytes, signature);
 		
 		// A correctly signed but older index is a replay: whoever serves it
-		// could be hiding a block made since
-		let current = await this.getIndex();
-		if (current && Date.parse(index.generated) < Date.parse(current.generated)) {
+		// could be hiding a block made since, and lifting it here. The newest
+		// one accepted is remembered apart from the kept copy, which a new
+		// profile does not have and an old one can lose.
+		let generated = Date.parse(index.generated);
+		let newest = Date.parse(Zotero.Prefs.get('paperlyExtensions.lastGenerated')) || 0;
+		if (generated < newest) {
 			throw _error('stale', 'The marketplace sent an older index than the one already seen');
 		}
+		if (Date.now() - generated > MAX_INDEX_AGE) {
+			throw _error('stale', `The marketplace sent an index from ${index.generated}`);
+		}
 		
+		// Each file whole or not at all, and the signature first: a copy cut
+		// short between the two does not verify, and the next refresh replaces it
 		let dir = _getCacheDir();
+		let indexPath = PathUtils.join(dir, 'index.json');
+		let signaturePath = PathUtils.join(dir, 'index.json.sig');
 		await IOUtils.makeDirectory(dir, { ignoreExisting: true });
-		await IOUtils.write(PathUtils.join(dir, 'index.json'), bytes);
-		await IOUtils.writeUTF8(PathUtils.join(dir, 'index.json.sig'), signature);
+		await IOUtils.writeUTF8(signaturePath, signature, { tmpPath: signaturePath + '.tmp' });
+		await IOUtils.write(indexPath, bytes, { tmpPath: indexPath + '.tmp' });
 		_index = index;
+		Zotero.Prefs.set('paperlyExtensions.lastGenerated', index.generated);
 		Zotero.Prefs.set('paperlyExtensions.lastCheck', Math.round(Date.now() / 1000));
 		await _applyBlocked(index.blocked);
 		_notify('index');
@@ -667,7 +681,7 @@ Zotero.PaperlyExtensions = new function () {
 		catch {
 			throw _error('format', 'The marketplace index cannot be read');
 		}
-		if (index.schema != 1 || !Array.isArray(index.extensions)) {
+		if (index.schema != 1 || !Array.isArray(index.extensions) || isNaN(Date.parse(index.generated))) {
 			throw _error('format', 'The marketplace index is in a format this Paperly does not read');
 		}
 		return index;
