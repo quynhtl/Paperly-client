@@ -47,6 +47,7 @@ extensions-badge-update = Update
 
 extensions-not-from-marketplace = Installed from outside the marketplace, so nothing has checked it.
 extensions-id-conflict = The marketplace lists a different extension with the same id. It can’t replace this one.
+extensions-publisher-changed = This extension was installed from { $previous } on GitHub, and the marketplace now lists it under { $current }. It won’t be updated until you accept that here.
 extensions-blocked-banner = Paperly switched this extension off: { $reason }
 extensions-incompatible = No version of this extension runs in Paperly { $version }.
 
@@ -72,6 +73,7 @@ extensions-confirm-install = Install { $name }?
 extensions-confirm-update = Update { $name }?
 extensions-confirm-declares = It says it:
 extensions-confirm-new-uses = This version also:
+extensions-confirm-publisher-changed = It now comes from a different publisher:
 extensions-confirm-warnings = The checks found:
 extensions-confirm-trust = Extensions run with full access to Paperly and your files. Install only extensions from publishers you trust.
 

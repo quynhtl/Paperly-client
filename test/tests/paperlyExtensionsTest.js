@@ -327,6 +327,18 @@ describe("Zotero.PaperlyExtensions", function () {
 			await waitForVersion('1.1');
 		});
 		
+		it("should refuse one from another publisher than the installed version's", async function () {
+			let first = await installFirst();
+			let update = await makeExtension('1.1');
+			let publisher = { name: 'Someone else', github: 'someone-else', official: false, verified: false };
+			await publish(makeIndex([update, first], { publisher }));
+			await Zotero.PaperlyExtensions.refresh();
+			assert.equal(await installDirectly(update), 'cancelled');
+			assert.equal((await AddonManager.getAddonByID(ID)).version, '1.0');
+			let entry = (await Zotero.PaperlyExtensions.getInstalled()).find(x => x.addon.id == ID);
+			assert.equal(entry.previousPublisher, 'paperly');
+		});
+		
 		it("should refuse one that uses more than the installed version", async function () {
 			let first = await installFirst();
 			let update = await makeExtension('1.1');
@@ -697,6 +709,31 @@ describe("Zotero.PaperlyExtensions", function () {
 			doc.getElementById('confirm-ok').click();
 			await waitForVersion('1.1');
 			assert.isTrue((await AddonManager.getAddonByID(ID)).isActive);
+		});
+		
+		it("should confirm an update from another publisher, and say who", async function () {
+			let first = await makeExtension('1.0');
+			await publish(makeIndex([first]));
+			await Zotero.PaperlyExtensions.refresh();
+			await Zotero.PaperlyExtensions.install(ID);
+			await waitForVersion('1.0');
+			let publisher = { name: 'Someone else', github: 'someone-else', official: false, verified: false };
+			await publish(makeIndex([await makeExtension('1.1'), first], { publisher }));
+			await Zotero.PaperlyExtensions.refresh();
+			let opened = waitForWindow('chrome://zotero/content/paperlyExtensions.xhtml');
+			Zotero.PaperlyExtensions.openWindow({ extensionID: ID });
+			win = await opened;
+			let doc = win.document;
+			
+			let banner = await waitFor(() => doc.querySelector('#details [data-l10n-id="extensions-publisher-changed"]'));
+			assert.deepEqual(JSON.parse(banner.getAttribute('data-l10n-args')), { previous: 'paperly', current: 'someone-else' });
+			doc.querySelector('.details-actions [data-l10n-id="extensions-update"]').click();
+			assert.isFalse(doc.getElementById('confirm').hidden);
+			assert.include(doc.getElementById('confirm-body').textContent, 'Someone else');
+			doc.getElementById('confirm-ok').click();
+			await waitForVersion('1.1');
+			// Accepted, so no longer a change
+			await waitFor(() => !doc.querySelector('#details [data-l10n-id="extensions-publisher-changed"]'));
 		});
 		
 		it("should check again when the last check is dated in the future", async function () {

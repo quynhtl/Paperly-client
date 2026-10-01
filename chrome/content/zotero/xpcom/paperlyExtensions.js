@@ -34,10 +34,11 @@
 // URL each declares -- for a listed extension, a file the marketplace publishes
 // unsigned, which anything in between could rewrite. So an update it is about
 // to make over a marketplace extension goes ahead only when the signed index
-// lists that version with that file's SHA-256, and the version uses nothing the
-// installed one did not; anything else is cancelled, and it tries again the
-// next day. An update that uses more is the user's to confirm, in the
-// Extensions window.
+// lists that version with that file's SHA-256, the version uses nothing the
+// installed one did not, and the listing still names the publisher the
+// extension was installed from. Anything else is cancelled, and it tries again
+// the next day; an update that uses more, or comes from someone new, is the
+// user's to confirm, in the Extensions window.
 
 Zotero.PaperlyExtensions = new function () {
 	const CHECK_INTERVAL = 24 * 60 * 60 * 1000;
@@ -218,6 +219,7 @@ Zotero.PaperlyExtensions = new function () {
 		Zotero.Prefs.set('paperlyExtensions.lastGenerated', index.generated);
 		Zotero.Prefs.set('paperlyExtensions.lastCheck', Math.round(Date.now() / 1000));
 		await _applyBlocked(index.blocked);
+		await _rememberPublishers(index);
 		_notify('index');
 		return index;
 	};
@@ -382,6 +384,7 @@ Zotero.PaperlyExtensions = new function () {
 			await addon.uninstall();
 			throw _error('wrong-id', `The marketplace's file for ${id} installed ${addon.id}`);
 		}
+		_setPublisher(extension);
 		_notify('addons');
 		return addon;
 	};
@@ -409,9 +412,11 @@ Zotero.PaperlyExtensions = new function () {
 	 * Every installed extension, with its listing when it is the marketplace's
 	 * own copy of it. An add-on from elsewhere that only shares a listed id gets
 	 * that listing as `conflict` instead: a different extension, which must
-	 * neither describe nor replace it.
+	 * neither describe nor replace it. `previousPublisher` is the GitHub account
+	 * the extension was installed from, when its listing now names another.
 	 *
-	 * @return {Promise<{ addon: Addon, extension: Object|null, conflict: Object|null }[]>}
+	 * @return {Promise<{ addon: Addon, extension: Object|null, conflict: Object|null,
+	 *     previousPublisher: String|null }[]>}
 	 */
 	this.getInstalled = async function () {
 		let index = await this.getIndex();
@@ -421,7 +426,12 @@ Zotero.PaperlyExtensions = new function () {
 			.map((addon) => {
 				let listing = (index && index.extensions.find(x => x.id == addon.id)) || null;
 				let own = !!listing && _isListingOf(listing, addon);
-				return { addon, extension: own ? listing : null, conflict: own ? null : listing };
+				return {
+					addon,
+					extension: own ? listing : null,
+					conflict: own ? null : listing,
+					previousPublisher: own ? _getPreviousPublisher(listing) : null
+				};
 			});
 	};
 	
@@ -605,8 +615,9 @@ Zotero.PaperlyExtensions = new function () {
 	// Why the add-on manager must not make an install over a marketplace
 	// extension, or null if it may. Its own updates come from a file nobody
 	// signed, so the signed index has to vouch for the version, and for the
-	// file by its SHA-256; and as in the Extensions window, an update that uses
-	// more than the installed version needs the user's confirmation.
+	// file by its SHA-256; and as in the Extensions window, an update from
+	// another publisher, or that uses more than the installed version, needs
+	// the user's confirmation.
 	function _checkUpdate(install) {
 		let existing = install.existingAddon;
 		if (!existing || !_isFromMarketplace(existing) || _ownInstalls.has(install)) {
@@ -620,6 +631,10 @@ Zotero.PaperlyExtensions = new function () {
 		let release = extension && extension.versions.find(v => v.version == version);
 		if (!release) {
 			return 'the marketplace does not list this version';
+		}
+		let previous = _getPreviousPublisher(extension);
+		if (previous) {
+			return `it was installed from ${previous}, and the marketplace now lists it under ${extension.publisher.github}`;
 		}
 		let hash;
 		try {
@@ -638,6 +653,54 @@ Zotero.PaperlyExtensions = new function () {
 			return `it also uses ${newUses.join(', ')}, which the user has not agreed to`;
 		}
 		return null;
+	}
+	
+	
+	// The GitHub account each marketplace extension was installed from, by id. An
+	// id can change hands -- delisted, then listed again by someone else -- and
+	// what comes from the new holder is the user's to accept, not an update's.
+	function _getPublishers() {
+		try {
+			let publishers = JSON.parse(Zotero.Prefs.get('paperlyExtensions.publishers') || '{}');
+			return publishers && typeof publishers == 'object' ? publishers : {};
+		}
+		catch {
+			return {};
+		}
+	}
+	
+	
+	function _getPublisherOf(extension) {
+		return String((extension.publisher && extension.publisher.github) || '').toLowerCase();
+	}
+	
+	
+	function _setPublisher(extension) {
+		let publishers = _getPublishers();
+		publishers[extension.id] = _getPublisherOf(extension);
+		Zotero.Prefs.set('paperlyExtensions.publishers', JSON.stringify(publishers));
+	}
+	
+	
+	// The account an installed extension came from, when its listing now names
+	// another, or null
+	function _getPreviousPublisher(extension) {
+		let previous = _getPublishers()[extension.id];
+		return previous && previous != _getPublisherOf(extension) ? previous : null;
+	}
+	
+	
+	// An extension that install() did not put there -- the one shipped with
+	// Paperly, say -- comes from the account first seen listing it
+	async function _rememberPublishers(index) {
+		let publishers = _getPublishers();
+		let addons = await AddonManager.getAddonsByTypes(['extension']);
+		for (let addon of addons) {
+			let extension = index.extensions.find(x => x.id == addon.id);
+			if (extension && !publishers[addon.id] && _isListingOf(extension, addon)) {
+				_setPublisher(extension);
+			}
+		}
 	}
 	
 	
@@ -670,8 +733,8 @@ Zotero.PaperlyExtensions = new function () {
 			&& url.startsWith(Zotero.PaperlyExtensions.getRegistryURL())
 			&& addon.updateURL === url;
 	}
-
-
+	
+	
 	async function _parseVerified(bytes, signature) {
 		if (!await Zotero.PaperlyExtensions.verify(bytes, signature)) {
 			throw _error('signature', 'The marketplace index is not signed with the key Paperly trusts');

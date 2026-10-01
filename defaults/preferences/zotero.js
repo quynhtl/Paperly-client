@@ -287,6 +287,8 @@ pref("extensions.zotero.paperlyExtensions.lastCheck", 0);
 // When the newest index accepted was generated, so an older one is refused
 // even if the kept copy is gone
 pref("extensions.zotero.paperlyExtensions.lastGenerated", "");
+// The GitHub account each marketplace extension was installed from, by id
+pref("extensions.zotero.paperlyExtensions.publishers", "");
 // The marketplace's blocks as of the last index that verified, read by
 // Zotero.Plugins before any plugin starts
 pref("extensions.zotero.paperlyExtensions.blocked", "");

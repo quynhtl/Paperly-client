@@ -302,12 +302,12 @@ var Zotero_Paperly_Extensions = {
 	// Everything there is to show: what is installed, then what is not
 	_getEntries() {
 		let installed = this._installed
-			.map(({ addon, extension, conflict }) => ({ id: addon.id, addon, extension, conflict }))
+			.map(entry => ({ id: entry.addon.id, ...entry }))
 			.sort((a, b) => this._getName(a).localeCompare(this._getName(b)));
 		let installedIDs = new Set(installed.map(entry => entry.id));
 		let marketplace = ((this._index && this._index.extensions) || [])
 			.filter(extension => !installedIDs.has(extension.id))
-			.map(extension => ({ id: extension.id, addon: null, extension, conflict: null }));
+			.map(extension => ({ id: extension.id, addon: null, extension, conflict: null, previousPublisher: null }));
 		return { installed, marketplace };
 	},
 	
@@ -567,6 +567,15 @@ var Zotero_Paperly_Extensions = {
 		if (entry.conflict) {
 			banners.push(h('p', { class: 'banner warning', l10n: { id: 'extensions-id-conflict' } }));
 		}
+		if (entry.previousPublisher) {
+			banners.push(h('p', {
+				class: 'banner warning',
+				l10n: {
+					id: 'extensions-publisher-changed',
+					args: { previous: entry.previousPublisher, current: extension.publisher.github }
+				}
+			}));
+		}
 		if (extension && !compatible) {
 			banners.push(h('p', {
 				class: 'banner warning',
@@ -732,12 +741,14 @@ var Zotero_Paperly_Extensions = {
 		// A first install says what the extension does; an update only what
 		// this version does that the installed one did not. A version the
 		// marketplace does not list could have done anything, so from one of
-		// those everything counts as new, and the update is always confirmed.
+		// those everything counts as new, and the update is always confirmed --
+		// as it is when the extension now comes from someone else.
 		let installed = addon && extension.versions.find(v => v.version == addon.version);
 		let unlisted = !!addon && !installed;
 		let usedBefore = (installed && installed.uses) || [];
 		let newUses = (release.uses || []).filter(use => !usedBefore.includes(use));
-		if ((!update || unlisted || newUses.length) && !await this._confirm(entry, release, { update, newUses })) {
+		let confirm = !update || unlisted || newUses.length || entry.previousPublisher;
+		if (confirm && !await this._confirm(entry, release, { update, newUses })) {
 			return;
 		}
 		
@@ -783,6 +794,11 @@ var Zotero_Paperly_Extensions = {
 		let body = document.getElementById('confirm-body');
 		body.replaceChildren();
 		if (update) {
+			if (entry.previousPublisher) {
+				body.append(
+					h('p', { l10n: { id: 'extensions-confirm-publisher-changed' } }),
+					h('p', { class: 'publisher' }, this._renderPublisher(entry)));
+			}
 			if (newUses.length) {
 				body.append(
 					h('p', { l10n: { id: 'extensions-confirm-new-uses' } }),
