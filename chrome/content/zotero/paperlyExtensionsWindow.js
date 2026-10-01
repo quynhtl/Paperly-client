@@ -740,7 +740,9 @@ var Zotero_Paperly_Extensions = {
 	},
 	
 	
-	async _install(entry, { update = false } = {}) {
+	// With `changed`, the index changed under the release last confirmed, and
+	// what it offers now is asked about whatever it is
+	async _install(entry, { update = false, changed = false } = {}) {
 		let { extension, addon } = entry;
 		let release = Zotero.PaperlyExtensions.getCompatibleVersion(extension);
 		if (!release) {
@@ -758,17 +760,22 @@ var Zotero_Paperly_Extensions = {
 		let unlisted = !!addon && !installed;
 		let usedBefore = installed ? Zotero.PaperlyExtensions.getAgreedUses(addon) : [];
 		let newUses = (release.uses || []).filter(use => !usedBefore.includes(use));
-		let confirm = !update || unlisted || newUses.length || entry.previousPublisher;
-		if (confirm && !await this._confirm(entry, release, { update, newUses })) {
+		let confirm = changed || !update || unlisted || newUses.length || entry.previousPublisher;
+		if (confirm && !await this._confirm(entry, release, { update, newUses, changed })) {
 			return;
 		}
-		
+
 		this._busy.set(entry.id, { update, progress: 0 });
 		this._errors.delete(entry.id);
 		this._selectedID = entry.id;
 		this._render();
+		let changedSince = false;
 		try {
+			// Just the release confirmed: a refresh can land while the user
+			// decides, and the index offer another
 			await Zotero.PaperlyExtensions.install(entry.id, {
+				version: release.version,
+				sha256: release.sha256,
 				onProgress: (progress) => {
 					this._busy.get(entry.id).progress = progress;
 					let bar = this._details.querySelector('.details-progress');
@@ -780,12 +787,37 @@ var Zotero_Paperly_Extensions = {
 		}
 		catch (e) {
 			Zotero.debug(`Paperly extensions: ${e.message}`, 2);
-			this._errors.set(entry.id, ERRORS[e.code] || 'extensions-error-other');
+			if (e.code == 'changed') {
+				changedSince = true;
+			}
+			else {
+				this._errors.set(entry.id, ERRORS[e.code] || 'extensions-error-other');
+			}
 		}
 		finally {
 			this._busy.delete(entry.id);
 			await this.reload();
 		}
+		if (changedSince) {
+			await this._installChanged(entry.id, { update });
+		}
+	},
+
+
+	// Asks again about an extension whose release changed under the
+	// confirmation, if the marketplace still offers one to install
+	async _installChanged(id, { update }) {
+		let { installed, marketplace } = this._getEntries();
+		let entry = [...installed, ...marketplace].find(x => x.id == id);
+		let offered = entry && entry.extension && (update
+			? this._getUpdate(entry)
+			: !entry.addon && Zotero.PaperlyExtensions.getCompatibleVersion(entry.extension));
+		if (!offered) {
+			this._errors.set(id, 'extensions-error-changed');
+			this._render();
+			return;
+		}
+		await this._install(entry, { update, changed: true });
 	},
 	
 	
@@ -800,10 +832,13 @@ var Zotero_Paperly_Extensions = {
 	},
 	
 	
-	_confirm(entry, release, { update, newUses }) {
+	_confirm(entry, release, { update, newUses, changed = false }) {
 		let name = this._getName(entry);
 		let body = document.getElementById('confirm-body');
 		body.replaceChildren();
+		if (changed) {
+			body.append(h('p', { l10n: { id: 'extensions-confirm-changed' } }));
+		}
 		if (update) {
 			// The accounts, and not only the name: a listing's publisher name is
 			// free text, and a new holder of the id can give the old one's

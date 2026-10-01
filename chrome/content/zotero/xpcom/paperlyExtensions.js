@@ -377,12 +377,21 @@ Zotero.PaperlyExtensions = new function () {
 	 * Installs, or updates to, the newest version of a listed extension that
 	 * this Paperly can run.
 	 *
+	 * The user confirms a release, and the index can change before it is
+	 * installed -- a refresh landing while they decide -- for one that uses
+	 * more, say. So the release they confirmed is named by its version and
+	 * SHA-256, and when the index no longer offers just that one, nothing is
+	 * installed: the error's code is 'changed', and what it offers now is
+	 * theirs to confirm again.
+	 *
 	 * @param {String} id
 	 * @param {Object} [options]
+	 * @param {String} [options.version] - The version the user confirmed
+	 * @param {String} [options.sha256] - The SHA-256 of the file they confirmed
 	 * @param {Function} [options.onProgress] - Called with 0..1 while downloading
 	 * @return {Promise<Addon>}
 	 */
-	this.install = async function (id, { onProgress } = {}) {
+	this.install = async function (id, { version, sha256, onProgress } = {}) {
 		let index = await this.getIndex();
 		let extension = index && index.extensions.find(x => x.id == id);
 		if (!extension) {
@@ -398,7 +407,12 @@ Zotero.PaperlyExtensions = new function () {
 		if (!release) {
 			throw _error('incompatible', `No version of ${id} runs in Paperly ${Services.appinfo.version}`);
 		}
-		
+		let confirmed = (version === undefined || release.version == version)
+			&& (sha256 === undefined || String(release.sha256).toLowerCase() == String(sha256).toLowerCase());
+		if (!confirmed) {
+			throw _error('changed', `The marketplace now offers ${id} ${release.version}, not the release confirmed`);
+		}
+
 		let install = await AddonManager.getInstallForURL(release.url, {
 			hash: 'sha256:' + release.sha256,
 			name: extension.name,

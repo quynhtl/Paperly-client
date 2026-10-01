@@ -288,6 +288,26 @@ describe("Zotero.PaperlyExtensions", function () {
 			assert.isNull(await AddonManager.getAddonByID(ID));
 		});
 		
+		it("should install just the release confirmed, and nothing once the index offers another", async function () {
+			let first = await makeExtension('1.0');
+			await publish(makeIndex([first]));
+			await Zotero.PaperlyExtensions.refresh();
+			// 1.0 was confirmed; by the time it is installed, the index offers 1.1
+			let update = await makeExtension('1.1');
+			await publish(makeIndex([update, first]));
+			await Zotero.PaperlyExtensions.refresh();
+			let error = await getPromiseError(Zotero.PaperlyExtensions.install(ID, { version: '1.0', sha256: first.sha256 }));
+			assert.equal(error.code, 'changed');
+			// The version confirmed, but another file
+			error = await getPromiseError(Zotero.PaperlyExtensions.install(ID, { version: '1.1', sha256: first.sha256 }));
+			assert.equal(error.code, 'changed');
+			assert.isNull(await AddonManager.getAddonByID(ID));
+			
+			let addon = await Zotero.PaperlyExtensions.install(ID, { version: '1.1', sha256: update.sha256 });
+			assert.equal(addon.version, '1.1');
+			await waitForVersion('1.1');
+		});
+		
 		it("should refuse an extension that is not listed", async function () {
 			let error = await getPromiseError(Zotero.PaperlyExtensions.install('nobody@example.com'));
 			assert.equal(error.code, 'not-listed');
@@ -919,6 +939,44 @@ describe("Zotero.PaperlyExtensions", function () {
 			await waitForVersion('1.1');
 			// Accepted, so no longer a change
 			await waitFor(() => !doc.querySelector('#details [data-l10n-id="extensions-publisher-changed"]'));
+		});
+		
+		it("should ask again when the index changes the release while the user decides", async function () {
+			let first = await makeExtension('1.0');
+			await publish(makeIndex([{ ...first, uses: ['files'] }]));
+			await Zotero.PaperlyExtensions.refresh();
+			await Zotero.PaperlyExtensions.install(ID);
+			await waitForVersion('1.0');
+			let next = await makeExtension('1.1');
+			await publish(makeIndex([{ ...next, uses: ['files', 'clipboard'] }, { ...first, uses: ['files'] }]));
+			await Zotero.PaperlyExtensions.refresh();
+			let opened = waitForWindow('chrome://zotero/content/paperlyExtensions.xhtml');
+			Zotero.PaperlyExtensions.openWindow({ extensionID: ID });
+			win = await opened;
+			let doc = win.document;
+			let newUses = () => [...doc.querySelectorAll('#confirm-body .uses li')].map(li => li.getAttribute('data-use'));
+			
+			let update = await waitFor(() => doc.querySelector('.details-actions [data-l10n-id="extensions-update"]'));
+			update.click();
+			assert.deepEqual(newUses(), ['clipboard']);
+			// While the confirmation is open, a refresh lands with 1.2, which reads passwords
+			await publish(makeIndex([
+				{ ...await makeExtension('1.2'), uses: ['files', 'clipboard', 'passwords'] },
+				{ ...next, uses: ['files', 'clipboard'] },
+				{ ...first, uses: ['files'] }
+			]));
+			await Zotero.PaperlyExtensions.refresh();
+			doc.getElementById('confirm-ok').click();
+			
+			// Asked again, about what is offered now, with nothing installed meanwhile
+			await waitFor(() => doc.querySelector('#confirm-body [data-l10n-id="extensions-confirm-changed"]'));
+			assert.isFalse(doc.getElementById('confirm').hidden);
+			assert.deepEqual(newUses(), ['clipboard', 'passwords']);
+			assert.equal((await AddonManager.getAddonByID(ID)).version, '1.0');
+			doc.getElementById('confirm-ok').click();
+			await waitForVersion('1.2');
+			let addon = await AddonManager.getAddonByID(ID);
+			assert.deepEqual(Zotero.PaperlyExtensions.getAgreedUses(addon), ['files', 'clipboard', 'passwords']);
 		});
 		
 		it("should check again when the last check is dated in the future", async function () {

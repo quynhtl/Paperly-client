@@ -72,6 +72,7 @@ extensions-link-privacy = Privacy policy
 
 extensions-confirm-install = Install { $name }?
 extensions-confirm-update = Update { $name }?
+extensions-confirm-changed = The marketplace changed this extension while you were deciding. This is what it offers now.
 extensions-confirm-declares = It says it:
 extensions-confirm-new-uses = This version also:
 extensions-confirm-publisher-changed = It was installed from { $previous } on GitHub, and now comes from { $current }:
@@ -84,4 +85,5 @@ extensions-error-corrupt = The downloaded file is damaged.
 extensions-error-file-access = Paperly couldn’t write the extension to your profile.
 extensions-error-incompatible = No version of this extension runs in this Paperly.
 extensions-error-id-conflict = An extension with the same id is already installed from outside the marketplace, so this one wasn’t installed.
+extensions-error-changed = The marketplace changed this extension while you were deciding, so nothing was installed.
 extensions-error-other = The extension couldn’t be installed.
