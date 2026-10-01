@@ -217,10 +217,16 @@ describe("Zotero.PaperlyExtensions", function () {
 			assert.equal(error.code, 'stale');
 		});
 		
-		it("should refuse an index generated more than 45 days ago", async function () {
-			await publish(makeIndex([], { generated: new Date(Date.now() - 46 * 24 * 60 * 60 * 1000) }));
+		it("should refuse an index generated more than a week ago, with none seen before", async function () {
+			const DAY = 24 * 60 * 60 * 1000;
+			assert.notOk(Zotero.Prefs.get('paperlyExtensions.lastGenerated'));
+			await publish(makeIndex([], { generated: new Date(Date.now() - 8 * DAY) }));
 			let error = await getPromiseError(Zotero.PaperlyExtensions.refresh());
 			assert.equal(error.code, 'stale');
+			// Some days late is an outage, or a clock out, and still believed
+			let late = makeIndex([], { generated: new Date(Date.now() - 6 * DAY) });
+			await publish(late);
+			assert.equal((await Zotero.PaperlyExtensions.refresh()).generated, late.generated);
 		});
 	});
 	

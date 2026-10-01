@@ -46,9 +46,12 @@ Zotero.PaperlyExtensions = new function () {
 	const FIRST_CHECK_DELAY = 60 * 1000;
 	const CHECK_TICK = 60 * 60 * 1000;
 	const CACHE_DIR_NAME = 'paperly-extensions';
-	// The marketplace publishes an index every few hours, so one older than this
-	// is a replay, however well signed -- or a marketplace that has stopped
-	const MAX_INDEX_AGE = 45 * 24 * 60 * 60 * 1000;
+	// The marketplace publishes an index every three hours, so one older than
+	// this is a replay, however well signed -- or a marketplace that has
+	// stopped. A new profile has seen no index to compare with, so this alone
+	// keeps it from an old one: room for an outage, or a clock some days out,
+	// and no more.
+	const MAX_INDEX_AGE = 7 * 24 * 60 * 60 * 1000;
 	let KEY_ALGORITHM = { name: 'ECDSA', namedCurve: 'P-256' };
 	let SIGNATURE_ALGORITHM = { name: 'ECDSA', hash: 'SHA-256' };
 	
