@@ -86,7 +86,8 @@ $toolbar-padding-inline: 8px;
 }
 
 /* Hide the add button on pane collapse. Otherwise, it may show on top of 'New Item' */
-#zotero-collections-pane[collapsed] #zotero-tb-collection-add {
+#zotero-collections-pane[collapsed] #zotero-tb-collection-add,
+#zotero-collections-pane[collapsed] #zotero-tb-extensions {
 	visibility: hidden;
 }
 

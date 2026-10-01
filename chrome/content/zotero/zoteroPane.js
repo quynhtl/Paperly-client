@@ -351,8 +351,14 @@ var ZoteroPane = new function () {
 		collectionTreeToolbar.addEventListener("keydown", (event) => {
 			let actionsMap = {
 				'zotero-tb-collection-add': {
-					ArrowNext: () => null,
+					ArrowNext: () => document.getElementById('zotero-tb-extensions'),
 					ArrowPrevious: () => null,
+					Tab: () => document.getElementById('zotero-tb-collections-search').click(),
+					ShiftTab: () => document.getElementById('zotero-tb-sync')
+				},
+				'zotero-tb-extensions': {
+					ArrowNext: () => null,
+					ArrowPrevious: () => document.getElementById('zotero-tb-collection-add'),
 					Tab: () => document.getElementById('zotero-tb-collections-search').click(),
 					ShiftTab: () => document.getElementById('zotero-tb-sync')
 				},

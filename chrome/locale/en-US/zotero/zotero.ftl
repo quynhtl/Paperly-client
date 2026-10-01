@@ -774,6 +774,8 @@ menu-new-collection =
     .label = { new-collection }
 toolbar-new-collection =
     .tooltiptext = { new-collection }
+toolbar-extensions =
+    .tooltiptext = Extensions
 
 new-collection-dialog =
     .title = New Collection
