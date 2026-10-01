@@ -232,8 +232,10 @@ Zotero.PaperlyExtensions = new function () {
 		let generated = Date.parse(index.generated);
 		let newest = Date.parse(Zotero.Prefs.get('paperlyExtensions.lastGenerated')) || 0;
 		if (generated < newest) {
-			throw _error('stale', 'The marketplace sent an older index than the one already seen');
+			throw _error('replay', 'The marketplace sent an older index than the one already seen');
 		}
+		// Most likely the marketplace has stopped publishing, and the index
+		// still served is the last it made
 		if (Date.now() - generated > MAX_INDEX_AGE) {
 			throw _error('stale', `The marketplace sent an index from ${index.generated}`);
 		}

@@ -284,9 +284,19 @@ var Zotero_Paperly_Extensions = {
 		}
 		catch (e) {
 			Zotero.debug(`Paperly extensions: ${e.message}`, 2);
-			let l10nID = ['signature', 'stale', 'format'].includes(e.code)
-				? 'extensions-status-untrusted'
-				: 'extensions-status-unreachable';
+			let l10nID;
+			// A week-old index verifies, and is most likely a marketplace that
+			// has stopped publishing -- which its maintainers, not the signing,
+			// have to answer for
+			if (e.code == 'stale') {
+				l10nID = 'extensions-status-stale';
+			}
+			else if (['signature', 'replay', 'format'].includes(e.code)) {
+				l10nID = 'extensions-status-untrusted';
+			}
+			else {
+				l10nID = 'extensions-status-unreachable';
+			}
 			this._setStatus({ l10nID, retry: true });
 		}
 	},

@@ -18,6 +18,7 @@ extensions-status-checking = Checking the marketplace…
 extensions-status-not-configured = The marketplace isn’t set up in this build of Paperly.
 extensions-status-unreachable = Couldn’t reach the marketplace.
 extensions-status-untrusted = The marketplace sent something Paperly couldn’t verify, so it was ignored.
+extensions-status-stale = The marketplace hasn’t been updated for over a week, so Paperly keeps using what it already has.
 extensions-status-retry = Try again
 extensions-no-results = No extensions match “{ $query }”.
 extensions-none-listed = No extensions are listed yet.

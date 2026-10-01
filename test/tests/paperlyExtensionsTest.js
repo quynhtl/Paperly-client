@@ -209,7 +209,7 @@ describe("Zotero.PaperlyExtensions", function () {
 			await Zotero.PaperlyExtensions.refresh();
 			await publish(makeIndex([], { generated: new Date(Date.now() - 60 * 60 * 1000) }));
 			let error = await getPromiseError(Zotero.PaperlyExtensions.refresh());
-			assert.equal(error.code, 'stale');
+			assert.equal(error.code, 'replay');
 		});
 		
 		it("should refuse an older index than the newest accepted, with no copy kept", async function () {
@@ -219,7 +219,7 @@ describe("Zotero.PaperlyExtensions", function () {
 			Zotero.Prefs.set('paperlyExtensions.lastGenerated', new Date(Date.parse(index.generated) + 1000).toISOString());
 			await IOUtils.remove(PathUtils.join(PathUtils.profileDir, 'paperly-extensions'), { recursive: true });
 			let error = await getPromiseError(Zotero.PaperlyExtensions.refresh());
-			assert.equal(error.code, 'stale');
+			assert.equal(error.code, 'replay');
 		});
 		
 		it("should refuse an index generated more than a week ago, with none seen before", async function () {
@@ -931,6 +931,17 @@ describe("Zotero.PaperlyExtensions", function () {
 			Zotero.PaperlyExtensions.openWindow();
 			win = await opened;
 			await waitFor(() => Zotero.Prefs.get('paperlyExtensions.lastCheck') < future);
+		});
+		
+		it("should say so when the marketplace has not published for over a week", async function () {
+			await publish(makeIndex([], { generated: new Date(Date.now() - 8 * 24 * 60 * 60 * 1000) }));
+			let opened = waitForWindow('chrome://zotero/content/paperlyExtensions.xhtml');
+			Zotero.PaperlyExtensions.openWindow();
+			win = await opened;
+			let doc = win.document;
+			// Not that it could not be verified, which points at the signing
+			await waitFor(() => doc.querySelector('#status [data-l10n-id="extensions-status-stale"]'));
+			assert.isNull(doc.querySelector('#status [data-l10n-id="extensions-status-untrusted"]'));
 		});
 		
 		it("should install nothing when the confirmation is cancelled", async function () {
