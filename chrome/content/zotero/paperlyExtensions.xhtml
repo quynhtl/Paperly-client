@@ -50,6 +50,11 @@
 	<script src="include.js"/>
 	<script src="paperlyExtensionsWindow.js"/>
 
+	<keyset>
+		<key id="key_close" modifiers="accel" key="W" oncommand="window.close()"/>
+		<key id="key_find" modifiers="accel" key="F" oncommand="document.getElementById('search').focus()"/>
+	</keyset>
+
 	<html:div id="extensions">
 		<html:nav id="activity-bar" role="tablist" aria-orientation="vertical">
 			<html:button id="activity-manager" class="activity" role="tab" aria-selected="true"
