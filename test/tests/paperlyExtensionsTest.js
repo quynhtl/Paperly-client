@@ -465,6 +465,43 @@ describe("Zotero.PaperlyExtensions", function () {
 			assert.equal(await installDirectly(update), 'installed');
 			await waitForVersion('1.1');
 		});
+		
+		it("should not judge one by what was agreed to for a copy since uninstalled", async function () {
+			// Installed from here, reading passwords -- and removed, perhaps for that
+			let first = await makeExtension('1.0');
+			await publish(makeIndex([{ ...first, uses: ['files', 'passwords'] }]));
+			await Zotero.PaperlyExtensions.refresh();
+			await Zotero.PaperlyExtensions.install(ID);
+			await waitForVersion('1.0');
+			await Zotero.PaperlyExtensions.uninstall(ID);
+			
+			// Later, a listed release that reads none, installed by hand
+			let later = await makeExtension('3.0');
+			assert.equal(await installDirectly(later), 'installed');
+			await waitForVersion('3.0');
+			let update = await makeExtension('3.1');
+			await publish(makeIndex([
+				{ ...update, uses: ['files', 'passwords'] },
+				{ ...later, uses: ['files'] }
+			]));
+			await Zotero.PaperlyExtensions.refresh();
+			assert.deepEqual(Zotero.PaperlyExtensions.getAgreedUses(await AddonManager.getAddonByID(ID)), ['files']);
+			assert.equal(await installDirectly(update), 'cancelled');
+			assert.equal((await AddonManager.getAddonByID(ID)).version, '3.0');
+		});
+		
+		it("should keep what was agreed to through an uninstall that is undone", async function () {
+			await publish(makeIndex([{ ...await makeExtension('1.0'), uses: ['files'] }]));
+			await Zotero.PaperlyExtensions.refresh();
+			let addon = await Zotero.PaperlyExtensions.install(ID);
+			await waitForVersion('1.0');
+			// As the add-on manager removes one, with a chance to undo it
+			await addon.uninstall(true);
+			await waitForVersion(undefined);
+			addon.cancelUninstall();
+			await waitForVersion('1.0');
+			assert.deepEqual(Zotero.PaperlyExtensions.getAgreedUses(addon), ['files']);
+		});
 	});
 	
 	describe("blocking", function () {

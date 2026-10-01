@@ -291,7 +291,8 @@ pref("extensions.zotero.paperlyExtensions.lastGenerated", "");
 pref("extensions.zotero.paperlyExtensions.publishers", "");
 // What each marketplace extension used when installed from the marketplace --
 // or, installed otherwise, when first seen to be a file the index lists -- by
-// id: what the user agreed to, which an update is judged by
+// id: what the user agreed to, which an update is judged by, until it is
+// uninstalled
 pref("extensions.zotero.paperlyExtensions.agreedUses", "");
 // The marketplace's blocks as of the last index that verified, read by
 // Zotero.Plugins before any plugin starts

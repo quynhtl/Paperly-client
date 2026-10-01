@@ -88,6 +88,17 @@ Zotero.PaperlyExtensions = new function () {
 			return true;
 		}
 	};
+	// What the user agreed to an extension using (see getAgreedUses()) goes
+	// with the copy it was agreed for: one installed again later -- by hand,
+	// say -- was not, and an update to it must not be judged by an earlier
+	// copy's. Uninstalled rather than uninstalling, so that an uninstall undone
+	// in the add-on manager keeps it; an update replaces the add-on without
+	// uninstalling it, and keeps it too.
+	var _uninstallListener = {
+		onUninstalled(addon) {
+			_dropAgreedUses(addon.id);
+		}
+	};
 	
 	
 	this.init = function () {
@@ -126,10 +137,16 @@ Zotero.PaperlyExtensions = new function () {
 	 * Has the add-on manager check with the update guard before it installs
 	 * over a marketplace extension (see the top of this file), and loads the
 	 * kept index the guard compares with; until it is here, updates wait.
+	 * What the user agreed to an extension using, which the guard goes by
+	 * too, is dropped from here on when the extension is uninstalled.
 	 */
 	this._guardUpdates = function () {
 		AddonManager.addInstallListener(_updateGuard);
-		Zotero.addShutdownListener(() => AddonManager.removeInstallListener(_updateGuard));
+		AddonManager.addAddonListener(_uninstallListener);
+		Zotero.addShutdownListener(() => {
+			AddonManager.removeInstallListener(_updateGuard);
+			AddonManager.removeAddonListener(_uninstallListener);
+		});
 		this.getIndex().catch(e => Zotero.logError(e));
 	};
 	
@@ -341,7 +358,9 @@ Zotero.PaperlyExtensions = new function () {
 	 * version now: a publisher can put out the same version again, using
 	 * more, and have it listed in place of the one installed -- or widen what
 	 * the listing declares along with the release that needs it. Without a
-	 * record, nothing, so that everything an update uses is asked about.
+	 * record, nothing, so that everything an update uses is asked about. A
+	 * record goes when the extension is uninstalled, as what was agreed for
+	 * that copy says nothing about one installed again later.
 	 *
 	 * @param {Addon} addon
 	 * @return {String[]}
@@ -706,6 +725,15 @@ Zotero.PaperlyExtensions = new function () {
 		let agreed = _getPrefObject('paperlyExtensions.agreedUses');
 		agreed[id] = uses;
 		Zotero.Prefs.set('paperlyExtensions.agreedUses', JSON.stringify(agreed));
+	}
+	
+	
+	function _dropAgreedUses(id) {
+		let agreed = _getPrefObject('paperlyExtensions.agreedUses');
+		if (Object.hasOwn(agreed, id)) {
+			delete agreed[id];
+			Zotero.Prefs.set('paperlyExtensions.agreedUses', JSON.stringify(agreed));
+		}
 	}
 	
 	
