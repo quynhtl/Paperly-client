@@ -773,9 +773,7 @@ Zotero.Plugins = new function () {
 		}
 	};
 	function getBlockedPlugins() {
-		// Paperly: plus what its extension marketplace blocks (paperlyExtensions.js).
-		// Optional, so that plugins still load if that file ever fails to.
-		return Object.assign({}, BLOCKED_PLUGINS, Zotero.PaperlyExtensions?.getBlockedPlugins());
+		return BLOCKED_PLUGINS;
 	}
 
 
@@ -805,7 +803,13 @@ Zotero.Plugins = new function () {
 				}
 			}
 		}
-		return blockedReason;
+		// Paperly: then what its extension marketplace blocks, which it decides
+		// itself (paperlyExtensions.js) -- as the marketplace compares versions,
+		// and for its own copies of an extension only. Optional, so that plugins
+		// still load if that file ever fails to.
+		return blockedReason
+			|| Zotero.PaperlyExtensions?.getMarketplaceBlockReason?.(addon)
+			|| false;
 	}
 
 

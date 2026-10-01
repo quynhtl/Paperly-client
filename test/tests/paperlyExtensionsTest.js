@@ -26,7 +26,7 @@ describe("Zotero.PaperlyExtensions", function () {
 	// of it is running -- and, with withView, gives itself a view -- and serves
 	// it at files/<name>. It takes its updates from the marketplace unless
 	// updateURL says otherwise.
-	async function makeExtension(version, { withView = false, updateURL = marketplaceUpdateURL() } = {}) {
+	async function makeExtension(version, { withView = false, id = ID, updateURL = marketplaceUpdateURL() } = {}) {
 		let name = `test-${version}-${++xpiCount}.xpi`;
 		let path = PathUtils.join(dir, name);
 		/* eslint-disable camelcase */
@@ -37,7 +37,7 @@ describe("Zotero.PaperlyExtensions", function () {
 				version,
 				applications: {
 					zotero: {
-						id: ID,
+						id,
 						// Plain HTTP from the test server, which before() lets
 						// the add-on manager accept
 						update_url: updateURL,
@@ -361,6 +361,61 @@ describe("Zotero.PaperlyExtensions", function () {
 			await Zotero.PaperlyExtensions.refresh();
 			assert.isTrue((await AddonManager.getAddonByID(ID)).isActive);
 			assert.equal(Zotero.PaperlyExtensionsTest, '1.1.0');
+		});
+		
+		it("should compare versions as the add-on manager does", function () {
+			let addon = version => ({ id: ID, version, updateURL: marketplaceUpdateURL() });
+			let block = range => Zotero.Prefs.set('paperlyExtensions.blocked',
+				JSON.stringify({ [ID]: { versionRanges: [range], reason: 'r' } }));
+			block({ maxVersion: '1.2' });
+			assert.equal(Zotero.PaperlyExtensions.getMarketplaceBlockReason(addon('1.2.0')), 'r');
+			assert.isFalse(Zotero.PaperlyExtensions.getMarketplaceBlockReason(addon('1.2.1')));
+			block({ minVersion: '2.0.0' });
+			assert.equal(Zotero.PaperlyExtensions.getMarketplaceBlockReason(addon('2.0')), 'r');
+			// A pre-release comes before its release
+			block({ minVersion: '1.3' });
+			assert.isFalse(Zotero.PaperlyExtensions.getMarketplaceBlockReason(addon('1.3b1')));
+		});
+		
+		it("should leave an extension from elsewhere running unless the block is global", async function () {
+			let release = await makeExtension('1.0');
+			let elsewhere = await makeExtension('1.0', { updateURL: 'https://elsewhere.test/updates.json' });
+			assert.equal(await installDirectly(elsewhere), 'installed');
+			await waitForVersion('1.0');
+			
+			let blocked = { [ID]: { versionRanges: ['*'], reason: 'Squatted.' } };
+			await publish(makeIndex([release], { blocked }));
+			await Zotero.PaperlyExtensions.refresh();
+			assert.isTrue((await AddonManager.getAddonByID(ID)).isActive);
+			assert.equal(Zotero.PaperlyExtensionsTest, '1.0');
+			
+			blocked[ID].global = true;
+			await publish(makeIndex([release], { blocked }));
+			await Zotero.PaperlyExtensions.refresh();
+			await waitForVersion(undefined);
+			assert.isFalse((await AddonManager.getAddonByID(ID)).isActive);
+		});
+		
+		it("should keep Zotero's own blocks for an id the marketplace blocks too", async function () {
+			const BBT = 'better-bibtex@iris-advies.com';
+			// Zotero blocks every version before 9.0; the marketplace one more
+			Zotero.Prefs.set('paperlyExtensions.blocked', JSON.stringify({
+				[BBT]: { versionRanges: ['9.1.3'], reason: 'One bad release.', global: true }
+			}));
+			let old = await makeExtension('8.0', { id: BBT, updateURL: 'https://elsewhere.test/updates.json' });
+			try {
+				assert.equal(await installDirectly(old), 'installed');
+				let addon = await AddonManager.getAddonByID(BBT);
+				assert.equal(addon.blocklistState, Ci.nsIBlocklistService.STATE_BLOCKED);
+				assert.isFalse(addon.isActive);
+				assert.isUndefined(Zotero.PaperlyExtensionsTest);
+			}
+			finally {
+				let addon = await AddonManager.getAddonByID(BBT);
+				if (addon) {
+					await addon.uninstall();
+				}
+			}
 		});
 		
 		it("should ignore a damaged list", function () {

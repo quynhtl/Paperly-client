@@ -208,10 +208,10 @@ Zotero.PaperlyExtensions = new function () {
 	
 	
 	/**
-	 * What the marketplace blocks, in the format of Zotero.Plugins' own list of
-	 * blocked plugins, as of the last index that verified. Zotero.Plugins reads
-	 * it at startup, before any plugin runs, and synchronously -- hence a pref
-	 * rather than the kept index.
+	 * What the marketplace blocks, by id, as of the last index that verified.
+	 * Zotero.Plugins asks about it (getMarketplaceBlockReason()) at startup,
+	 * before any plugin runs, and synchronously -- hence a pref rather than the
+	 * kept index.
 	 */
 	this.getBlockedPlugins = function () {
 		let json = Zotero.Prefs.get('paperlyExtensions.blocked');
@@ -224,7 +224,8 @@ Zotero.PaperlyExtensions = new function () {
 				if (entry && typeof entry.reason == 'string' && Array.isArray(entry.versionRanges)) {
 					blocked[id] = {
 						versionRanges: entry.versionRanges.filter(r => typeof r == 'string' || (r && typeof r == 'object')),
-						reason: entry.reason
+						reason: entry.reason,
+						global: entry.global === true
 					};
 				}
 			}
@@ -237,14 +238,38 @@ Zotero.PaperlyExtensions = new function () {
 	
 	
 	/**
-	 * Why an installed add-on is switched off by a block, or null.
+	 * Why the marketplace blocks an add-on, or false; Zotero.Plugins asks after
+	 * checking its own list. Versions compare as in the add-on manager and the
+	 * marketplace's build (scripts/lib/version.mjs), so a range blocks here just
+	 * what it took out of the index there. A block names an id, and anyone can
+	 * list an id, so it applies only to the marketplace's copy of an extension
+	 * -- unless the maintainers marked it global, for a plugin from elsewhere
+	 * known to do harm.
+	 */
+	this.getMarketplaceBlockReason = function (addon) {
+		let entry = this.getBlockedPlugins()[addon.id];
+		if (!entry || (!entry.global && !_isFromMarketplace(addon))) {
+			return false;
+		}
+		let blocked = entry.versionRanges.some((range) => {
+			if (typeof range == 'string') {
+				return range == '*' || range == addon.version;
+			}
+			return (!range.minVersion || Services.vc.compare(addon.version, range.minVersion) >= 0)
+				&& (!range.maxVersion || Services.vc.compare(addon.version, range.maxVersion) <= 0);
+		});
+		return blocked ? entry.reason : false;
+	};
+	
+	
+	/**
+	 * Why an installed add-on is switched off by a marketplace block, or null.
 	 */
 	this.getBlockReason = function (addon) {
 		if (addon.blocklistState != Ci.nsIBlocklistService.STATE_BLOCKED) {
 			return null;
 		}
-		let entry = this.getBlockedPlugins()[addon.id];
-		return entry ? entry.reason : null;
+		return this.getMarketplaceBlockReason(addon) || null;
 	};
 	
 	
