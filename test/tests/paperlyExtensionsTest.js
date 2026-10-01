@@ -336,6 +336,16 @@ describe("Zotero.PaperlyExtensions", function () {
 			await waitForVersion('1.1');
 		});
 		
+		it("should refuse one the index says does not run in this Paperly", async function () {
+			let first = await installFirst();
+			// The update file says it runs here; the index says it needs a later Paperly
+			let update = await makeExtension('1.1');
+			await publish(makeIndex([{ ...update, minAppVersion: '999.0', maxAppVersion: '999.*' }, first]));
+			await Zotero.PaperlyExtensions.refresh();
+			assert.equal(await installDirectly(update), 'cancelled');
+			assert.equal((await AddonManager.getAddonByID(ID)).version, '1.0');
+		});
+		
 		it("should refuse one from another publisher than the installed version's", async function () {
 			let first = await installFirst();
 			let update = await makeExtension('1.1');

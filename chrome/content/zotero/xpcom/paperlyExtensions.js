@@ -34,13 +34,14 @@
 // URL each declares -- for a listed extension, a file the marketplace publishes
 // unsigned, which anything in between could rewrite. So an update it is about
 // to make over a marketplace extension goes ahead only when the signed index
-// lists that version with that file's SHA-256, the version uses nothing the
-// user has not agreed to the installed one using, and the listing still names
-// the publisher the extension was installed from. Anything else is cancelled,
-// and it tries again the next day; an update that uses more, or comes from
-// someone new, is the user's to confirm, in the Extensions window. A file
-// installed by hand over a marketplace extension -- a developer's own build,
-// say -- is the user's own doing, and goes ahead.
+// lists that version with that file's SHA-256, as one that runs in this
+// Paperly, the version uses nothing the user has not agreed to the installed
+// one using, and the listing still names the publisher the extension was
+// installed from. Anything else is cancelled, and it tries again the next
+// day; an update that uses more, or comes from someone new, is the user's to
+// confirm, in the Extensions window. A file installed by hand over a
+// marketplace extension -- a developer's own build, say -- is the user's own
+// doing, and goes ahead.
 
 Zotero.PaperlyExtensions = new function () {
 	const CHECK_INTERVAL = 24 * 60 * 60 * 1000;
@@ -326,11 +327,7 @@ Zotero.PaperlyExtensions = new function () {
 	 * null.
 	 */
 	this.getCompatibleVersion = function (extension) {
-		let appVersion = Services.appinfo.version;
-		return extension.versions.find(
-			v => Services.vc.compare(appVersion, v.minAppVersion) >= 0
-				&& Services.vc.compare(appVersion, v.maxAppVersion) <= 0
-		) || null;
+		return extension.versions.find(release => _runsHere(release)) || null;
 	};
 	
 	
@@ -628,10 +625,10 @@ Zotero.PaperlyExtensions = new function () {
 	
 	// Why the add-on manager must not make an install over a marketplace
 	// extension, or null if it may. Its own updates come from a file nobody
-	// signed, so the signed index has to vouch for the version, and for the
-	// file by its SHA-256; and as in the Extensions window, an update from
-	// another publisher, or that uses more than the installed version, needs
-	// the user's confirmation.
+	// signed, so the signed index has to vouch for the version -- that it runs
+	// here, too -- and for the file by its SHA-256; and as in the Extensions
+	// window, an update from another publisher, or that uses more than the
+	// installed version, needs the user's confirmation.
 	function _checkUpdate(install) {
 		let existing = install.existingAddon;
 		if (!existing || !_isFromMarketplace(existing) || _ownInstalls.has(install)) {
@@ -652,6 +649,13 @@ Zotero.PaperlyExtensions = new function () {
 		let release = extension && extension.versions.find(v => v.version == version);
 		if (!release) {
 			return 'the marketplace does not list this version';
+		}
+		// The add-on manager goes by the versions the update file gives, which
+		// anything in between can widen. Installed, the update would only be
+		// switched off -- and the Extensions window, which offers the newest
+		// version that runs here, has nothing newer to bring it back with.
+		if (!_runsHere(release)) {
+			return 'this version does not run in this Paperly';
 		}
 		let previous = _getPreviousPublisher(extension);
 		if (previous) {
@@ -787,6 +791,14 @@ Zotero.PaperlyExtensions = new function () {
 			&& typeof url == 'string'
 			&& url.startsWith(Zotero.PaperlyExtensions.getRegistryURL())
 			&& addon.updateURL === url;
+	}
+	
+	
+	// Whether a listed release says it runs in this Paperly
+	function _runsHere(release) {
+		let appVersion = Services.appinfo.version;
+		return Services.vc.compare(appVersion, release.minAppVersion) >= 0
+			&& Services.vc.compare(appVersion, release.maxAppVersion) <= 0;
 	}
 	
 	
