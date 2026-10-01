@@ -856,6 +856,7 @@ describe("Zotero.PaperlyExtensions", function () {
 			assert.isNull(entry.extension);
 			assert.isNull(entry.conflict);
 			assert.isTrue(entry.fromMarketplace);
+			assert.isTrue(entry.delisted);
 			
 			let opened = waitForWindow('chrome://zotero/content/paperlyExtensions.xhtml');
 			Zotero.PaperlyExtensions.openWindow({ extensionID: ID });
@@ -867,6 +868,31 @@ describe("Zotero.PaperlyExtensions", function () {
 			});
 			// Not that it came from outside the marketplace, which it did not
 			assert.sameMembers(banners, ['extensions-blocked-banner', 'extensions-not-listed']);
+		});
+		
+		it("should say an extension the marketplace never listed is from outside it, whatever its update URL", async function () {
+			// A developer's own build, which takes its updates from the
+			// marketplace as it must before it is listed
+			let build = await makeExtension('1.0');
+			await publish({ ...makeIndex([]), extensions: [] });
+			await Zotero.PaperlyExtensions.refresh();
+			assert.equal(await installDirectly(build, { fromFile: true }), 'installed');
+			await waitForVersion('1.0');
+			let entry = (await Zotero.PaperlyExtensions.getInstalled()).find(x => x.addon.id == ID);
+			assert.isNull(entry.extension);
+			assert.isTrue(entry.fromMarketplace);
+			assert.isFalse(entry.delisted);
+			
+			let opened = waitForWindow('chrome://zotero/content/paperlyExtensions.xhtml');
+			Zotero.PaperlyExtensions.openWindow({ extensionID: ID });
+			win = await opened;
+			let doc = win.document;
+			let banners = await waitFor(() => {
+				let ids = [...doc.querySelectorAll('#details .banner')].map(b => b.getAttribute('data-l10n-id'));
+				return ids.length && ids;
+			});
+			// Not that the marketplace no longer lists it: it never did
+			assert.sameMembers(banners, ['extensions-not-from-marketplace']);
 		});
 		
 		it("should confirm an update from a version the marketplace does not list", async function () {

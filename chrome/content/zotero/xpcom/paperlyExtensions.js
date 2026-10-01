@@ -482,16 +482,21 @@ Zotero.PaperlyExtensions = new function () {
 	 * neither describe nor replace it. `previousPublisher` is the GitHub account
 	 * the extension was installed from, when its listing now names another.
 	 * `fromMarketplace` is whether the add-on takes its updates from the
-	 * marketplace, listed or not: the index drops an extension that is
-	 * delisted, blocked outright, or has no release that passed, and the
-	 * copy installed from here is still the marketplace's.
+	 * marketplace, listed or not. `delisted` is whether it is the marketplace's
+	 * copy of an extension that the marketplace listed once -- Paperly knows
+	 * whose it was -- and that the index, if there is one, lists no longer:
+	 * the index drops an extension that is delisted, blocked outright, or has
+	 * no release that passed. A file that only takes its updates from the
+	 * marketplace, as every one must before it is listed, is not: installed by
+	 * hand and never listed, nothing has checked it.
 	 *
 	 * @return {Promise<{ addon: Addon, extension: Object|null, conflict: Object|null,
-	 *     previousPublisher: String|null, fromMarketplace: Boolean }[]>}
+	 *     previousPublisher: String|null, fromMarketplace: Boolean, delisted: Boolean }[]>}
 	 */
 	this.getInstalled = async function () {
 		let index = await this.getIndex();
 		let addons = await AddonManager.getAddonsByTypes(['extension']);
+		let publishers = _getPublishers();
 		return addons
 			.filter(addon => !addon.hidden)
 			.map((addon) => {
@@ -502,7 +507,8 @@ Zotero.PaperlyExtensions = new function () {
 					extension: own ? listing : null,
 					conflict: own ? null : listing,
 					previousPublisher: own ? _getPreviousPublisher(listing) : null,
-					fromMarketplace: _isFromMarketplace(addon)
+					fromMarketplace: _isFromMarketplace(addon),
+					delisted: !listing && _isFromMarketplace(addon) && Object.hasOwn(publishers, addon.id)
 				};
 			});
 	};
