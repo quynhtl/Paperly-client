@@ -38,7 +38,9 @@
 // user has not agreed to the installed one using, and the listing still names
 // the publisher the extension was installed from. Anything else is cancelled,
 // and it tries again the next day; an update that uses more, or comes from
-// someone new, is the user's to confirm, in the Extensions window.
+// someone new, is the user's to confirm, in the Extensions window. A file
+// installed by hand over a marketplace extension -- a developer's own build,
+// say -- is the user's own doing, and goes ahead.
 
 Zotero.PaperlyExtensions = new function () {
 	const CHECK_INTERVAL = 24 * 60 * 60 * 1000;
@@ -633,6 +635,13 @@ Zotero.PaperlyExtensions = new function () {
 	function _checkUpdate(install) {
 		let existing = install.existingAddon;
 		if (!existing || !_isFromMarketplace(existing) || _ownInstalls.has(install)) {
+			return null;
+		}
+		// A file from the disk is someone's choice -- Install Plugin From File, a
+		// developer trying a build -- which nothing in between can make for them:
+		// the add-on manager's own updates come over the network, as it refuses
+		// an update manifest that points at a file
+		if (install.sourceURI && install.sourceURI.schemeIs('file')) {
 			return null;
 		}
 		if (!_index) {

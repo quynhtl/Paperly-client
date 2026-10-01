@@ -116,9 +116,12 @@ describe("Zotero.PaperlyExtensions", function () {
 	}
 	
 	// Installs a release the way anything but the marketplace would -- a file
-	// from elsewhere, or the add-on manager's own update -- and says how it ended
-	async function installDirectly(release) {
-		let install = await AddonManager.getInstallForURL(release.url, { hash: 'sha256:' + release.sha256 });
+	// from elsewhere, or the add-on manager's own update -- and says how it ended.
+	// With fromFile, from the file on the disk, as Install Plugin From File does.
+	async function installDirectly(release, { fromFile = false } = {}) {
+		let install = fromFile
+			? await AddonManager.getInstallForFile(Zotero.File.pathToFile(PathUtils.join(dir, release.url.split('/').pop())))
+			: await AddonManager.getInstallForURL(release.url, { hash: 'sha256:' + release.sha256 });
 		return new Promise((resolve) => {
 			install.addListener({
 				onInstallEnded: () => resolve('installed'),
@@ -352,6 +355,14 @@ describe("Zotero.PaperlyExtensions", function () {
 			await Zotero.PaperlyExtensions.refresh();
 			assert.equal(await installDirectly(update), 'cancelled');
 			assert.equal((await AddonManager.getAddonByID(ID)).version, '1.0');
+		});
+		
+		it("should leave to the user a file installed by hand", async function () {
+			await installFirst();
+			// A developer's own build, which the marketplace has never seen
+			let build = await makeExtension('1.1.1');
+			assert.equal(await installDirectly(build, { fromFile: true }), 'installed');
+			await waitForVersion('1.1.1');
 		});
 		
 		it("should judge one by what was installed once the index drops the installed version", async function () {
