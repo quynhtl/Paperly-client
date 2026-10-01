@@ -32,6 +32,8 @@ extensions-disable = Disable
 extensions-installing = Installing…
 extensions-updating = Updating…
 extensions-cancel = Cancel
+extensions-open-view = Open { $label }
+extensions-view-failed = This view couldn’t be shown. The error is in the debug output.
 
 extensions-publisher-official = Official
 extensions-publisher-verified = Verified publisher

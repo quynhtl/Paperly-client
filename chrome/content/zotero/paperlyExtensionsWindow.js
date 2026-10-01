@@ -70,6 +70,10 @@ var Zotero_Paperly_Extensions = {
 	// id -> l10n id of what went wrong last time
 	_errors: new Map(),
 	_status: null,
+	// The view shown instead of the marketplace, by key, or null
+	_activeView: null,
+	// key -> { view, container, body } for each view shown in this window
+	_viewParts: new Map(),
 	
 	async init() {
 		this._list = document.getElementById('list');
@@ -103,8 +107,17 @@ var Zotero_Paperly_Extensions = {
 			}
 		});
 		
-		this._onServiceChange = () => this.reload();
+		this._onServiceChange = (what) => {
+			if (what == 'views') {
+				this._renderActivityBar();
+				this._renderDetails();
+			}
+			else {
+				this.reload();
+			}
+		};
 		Zotero.PaperlyExtensions.addListener(this._onServiceChange);
+		document.getElementById('activity-manager').addEventListener('click', () => this.showManager());
 		// Changes made anywhere, Tools -> Plugins included
 		let reload = () => this.reload();
 		this._addonListener = {
@@ -121,6 +134,10 @@ var Zotero_Paperly_Extensions = {
 		this._selectedID = (args && args.extensionID) || null;
 		
 		await this.reload();
+		this._renderActivityBar();
+		if (args && args.view) {
+			this.showView(args.view);
+		}
 		let lastCheck = Zotero.Prefs.get('paperlyExtensions.lastCheck') * 1000;
 		if (!Zotero.PaperlyExtensions.isConfigured()) {
 			this._setStatus({ l10nID: 'extensions-status-not-configured' });
@@ -138,6 +155,104 @@ var Zotero_Paperly_Extensions = {
 	destroy() {
 		Zotero.PaperlyExtensions.removeListener(this._onServiceChange);
 		AddonManager.removeAddonListener(this._addonListener);
+		for (let key of [...this._viewParts.keys()]) {
+			this._destroyView(key);
+		}
+	},
+	
+	
+	/**
+	 * Shows an extension's view ('<pluginID>:<id>') in place of the marketplace.
+	 */
+	showView(key) {
+		let view = Zotero.PaperlyExtensions.getViews().find(v => v.key == key);
+		if (!view) {
+			return;
+		}
+		if (!this._viewParts.has(key)) {
+			let body = h('div', { class: 'view-body' });
+			let container = h('section', { class: 'view', 'data-view': key, hidden: true },
+				h('header', { class: 'view-header' }, h('h1', {}, view.label)),
+				body);
+			document.getElementById('view-host').append(container);
+			this._viewParts.set(key, { view, container, body });
+			try {
+				view.onRender({ body, window });
+			}
+			catch (e) {
+				Zotero.logError(e);
+				body.replaceChildren(h('p', { class: 'view-failed', l10n: { id: 'extensions-view-failed' } }));
+			}
+		}
+		for (let [otherKey, parts] of this._viewParts) {
+			parts.container.hidden = otherKey != key;
+		}
+		this._activeView = key;
+		document.getElementById('manager').hidden = true;
+		document.getElementById('view-host').hidden = false;
+		this._renderActivityBar();
+	},
+	
+	
+	showManager() {
+		this._activeView = null;
+		document.getElementById('view-host').hidden = true;
+		document.getElementById('manager').hidden = false;
+		this._renderActivityBar();
+	},
+	
+	
+	_destroyView(key) {
+		let parts = this._viewParts.get(key);
+		if (!parts) {
+			return;
+		}
+		this._viewParts.delete(key);
+		try {
+			if (parts.view.onDestroy) {
+				parts.view.onDestroy({ body: parts.body, window });
+			}
+		}
+		catch (e) {
+			Zotero.logError(e);
+		}
+		parts.container.remove();
+	},
+	
+	
+	// One button per view, after the marketplace's. A view that has gone (its
+	// extension stopped) is torn down here.
+	_renderActivityBar() {
+		let views = Zotero.PaperlyExtensions.getViews();
+		let keys = new Set(views.map(view => view.key));
+		for (let [key, parts] of [...this._viewParts]) {
+			// Gone, or registered again with a new onRender
+			if (!keys.has(key) || !views.some(view => view === parts.view)) {
+				this._destroyView(key);
+			}
+		}
+		if (this._activeView && !this._viewParts.has(this._activeView)) {
+			if (keys.has(this._activeView)) {
+				this.showView(this._activeView);
+				return;
+			}
+			this.showManager();
+			return;
+		}
+		
+		document.getElementById('activity-manager').setAttribute('aria-selected', String(!this._activeView));
+		document.getElementById('activity-views').replaceChildren(...views.map(view => h('button', {
+			class: 'activity view-button',
+			role: 'tab',
+			title: view.label,
+			'aria-label': view.label,
+			'aria-selected': String(view.key == this._activeView),
+			'data-view': view.key,
+			onclick: () => this.showView(view.key)
+		},
+		view.icon
+			? h('img', { src: view.icon, alt: '' })
+			: h('span', { class: 'letter', 'aria-hidden': 'true' }, view.label.charAt(0).toUpperCase()))));
 	},
 	
 	
@@ -481,6 +596,14 @@ var Zotero_Paperly_Extensions = {
 					buttons.push(h('button', {
 						l10n: { id: 'extensions-disable' },
 						onclick: () => this._run(() => Zotero.PaperlyExtensions.setEnabled(addon.id, false))
+					}));
+				}
+			}
+			if (addon.isActive) {
+				for (let view of Zotero.PaperlyExtensions.getViews().filter(v => v.pluginID == addon.id)) {
+					buttons.push(h('button', {
+						l10n: { id: 'extensions-open-view', args: { label: view.label } },
+						onclick: () => this.showView(view.key)
 					}));
 				}
 			}

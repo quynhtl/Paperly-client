@@ -25,9 +25,10 @@
 <?xml-stylesheet href="chrome://zotero-platform/content/zotero.css" type="text/css"?>
 
 <!--
-  Paperly's Extensions window: the marketplace and what is installed. A window
-  of its own, so nothing in the main window changes. Everything inside is
-  built by paperlyExtensionsWindow.js.
+  Paperly's Extensions window: the marketplace, what is installed, and the
+  views extensions add (Zotero.PaperlyExtensions.registerView). A window of its
+  own, so nothing in the main window changes. Everything inside is built by
+  paperlyExtensionsWindow.js.
 -->
 <window
 	xmlns="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul"
@@ -53,6 +54,7 @@
 		<html:nav id="activity-bar" role="tablist" aria-orientation="vertical">
 			<html:button id="activity-manager" class="activity" role="tab" aria-selected="true"
 					data-l10n-id="extensions-activity-manager"/>
+			<html:div id="activity-views"/>
 		</html:nav>
 
 		<html:div id="manager" role="tabpanel">
@@ -67,6 +69,8 @@
 			</html:aside>
 			<html:main id="details" tabindex="-1"/>
 		</html:div>
+
+		<html:div id="view-host" role="tabpanel" hidden="true"/>
 	</html:div>
 
 	<html:div id="confirm" hidden="true" role="dialog" aria-modal="true" aria-labelledby="confirm-title">

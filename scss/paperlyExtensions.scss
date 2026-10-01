@@ -137,6 +137,95 @@ $icon-info: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBo
 	mask-image: url($icon-extensions);
 }
 
+#activity-views {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 4px;
+	padding-top: 4px;
+	
+	&:not(:empty) {
+		margin-top: 4px;
+		border-top: 1px solid var(--color-border50);
+	}
+}
+
+// An extension's own icon, in colour, rather than a mask
+.view-button {
+	&::before {
+		display: none;
+	}
+	
+	img,
+	.letter {
+		position: absolute;
+		inset: 9px;
+		width: 22px;
+		height: 22px;
+		border-radius: 5px;
+		object-fit: contain;
+	}
+	
+	.letter {
+		font-size: 12px;
+	}
+	
+	&:not([aria-selected="true"]) :is(img, .letter) {
+		opacity: 0.75;
+	}
+	
+	&:hover :is(img, .letter) {
+		opacity: 1;
+	}
+}
+
+// Shown in place of the marketplace
+#view-host {
+	display: flex;
+	flex: 1;
+	flex-direction: column;
+	min-width: 0;
+	min-height: 0;
+}
+
+#manager[hidden],
+#view-host[hidden],
+.view[hidden] {
+	display: none;
+}
+
+.view {
+	display: flex;
+	flex: 1;
+	flex-direction: column;
+	min-height: 0;
+}
+
+.view-header {
+	padding: 12px 16px 8px;
+	border-bottom: 1px solid var(--color-border50);
+	
+	h1 {
+		margin: 0;
+		font-size: 11px;
+		font-weight: 600;
+		letter-spacing: 0.06em;
+		text-transform: uppercase;
+		color: var(--fill-secondary);
+	}
+}
+
+.view-body {
+	flex: 1;
+	min-height: 0;
+	overflow: auto;
+	padding: 16px;
+}
+
+.view-failed {
+	color: var(--fill-secondary);
+}
+
 // The sidebar: search, then what is installed, then the marketplace
 #manager {
 	display: flex;

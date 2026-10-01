@@ -43,12 +43,18 @@ Zotero.PaperlyExtensions = new function () {
 	
 	var _index = null;
 	var _listeners = new Set();
+	// key ('<pluginID>:<id>') -> view, in the order they were added
+	var _views = new Map();
 	var _checkTimer = null;
 	var _sandbox = null;
 	
 	
 	this.init = function () {
 		Zotero.addShutdownListener(() => clearTimeout(_checkTimer));
+		// An extension's views go when it stops, however it stops
+		Zotero.Plugins.addObserver({
+			shutdown: ({ id }) => this._removeViewsOf(id)
+		});
 		if (!this.isConfigured() || !Zotero.Prefs.get('paperlyExtensions.autoCheck')) {
 			return;
 		}
@@ -328,17 +334,21 @@ Zotero.PaperlyExtensions = new function () {
 	 *
 	 * @param {Object} [options]
 	 * @param {String} [options.extensionID] - Show this extension's details
+	 * @param {String} [options.view] - Show this view ('<pluginID>:<id>') instead
 	 */
-	this.openWindow = function ({ extensionID } = {}) {
+	this.openWindow = function ({ extensionID, view } = {}) {
 		let win = Services.wm.getMostRecentWindow('zotero:paperly-extensions');
 		if (win) {
 			win.focus();
-			if (extensionID) {
+			if (view) {
+				win.Zotero_Paperly_Extensions.showView(view);
+			}
+			else if (extensionID) {
 				win.Zotero_Paperly_Extensions.select(extensionID);
 			}
 			return win;
 		}
-		let args = { extensionID };
+		let args = { extensionID, view };
 		args.wrappedJSObject = args;
 		return Services.ww.openWindow(
 			null,
@@ -351,8 +361,81 @@ Zotero.PaperlyExtensions = new function () {
 	
 	
 	/**
-	 * @param {Function} listener - Called with 'index' when the index changes and
-	 *     'addons' after an install, uninstall, enable or disable done here
+	 * Gives an extension a view of its own in the Extensions window, with a
+	 * button in the window's activity bar -- a place for its interface that
+	 * leaves Paperly's own untouched. The view goes when the extension stops.
+	 *
+	 * Registering the same pluginID and id again replaces the view.
+	 *
+	 * @param {Object} view
+	 * @param {String} view.pluginID - The extension's id
+	 * @param {String} view.id - Unique within the extension
+	 * @param {String} view.label - The view's title, and the button's tooltip
+	 * @param {String} [view.icon] - An image URL for the button, such as rootURI + 'icon.svg'
+	 * @param {Function} view.onRender - ({ body, window }) => void, called once in each
+	 *     Extensions window, the first time the view is shown there; `body` is an
+	 *     empty HTML element for the view's content
+	 * @param {Function} [view.onDestroy] - ({ body, window }) => void, called when that
+	 *     window closes or the view is removed
+	 * @return {Function} Removes the view
+	 */
+	this.registerView = function (view) {
+		for (let name of ['pluginID', 'id', 'label']) {
+			if (typeof view[name] != 'string' || !view[name]) {
+				throw new Error(`registerView: '${name}' must be a non-empty string`);
+			}
+		}
+		if (typeof view.onRender != 'function') {
+			throw new Error("registerView: 'onRender' must be a function");
+		}
+		let key = `${view.pluginID}:${view.id}`;
+		let entry = {
+			key,
+			pluginID: view.pluginID,
+			id: view.id,
+			label: view.label,
+			icon: view.icon || null,
+			onRender: view.onRender,
+			onDestroy: view.onDestroy || null
+		};
+		_views.delete(key);
+		_views.set(key, entry);
+		_notify('views');
+		return () => {
+			if (_views.get(key) === entry) {
+				_views.delete(key);
+				_notify('views');
+			}
+		};
+	};
+	
+	
+	/**
+	 * Every registered view, in the order they were added.
+	 */
+	this.getViews = function () {
+		return [..._views.values()];
+	};
+	
+	
+	this._removeViewsOf = function (pluginID) {
+		let removed = false;
+		for (let [key, view] of _views) {
+			if (view.pluginID == pluginID) {
+				_views.delete(key);
+				removed = true;
+			}
+		}
+		if (removed) {
+			_notify('views');
+		}
+	};
+	
+	
+	/**
+	 * @param {Function} listener - Called with 'index' when the index changes,
+	 *     'addons' after an install, uninstall, enable or disable done here, and
+	 *     'views' when a view is added or removed
 	 */
 	this.addListener = function (listener) {
 		_listeners.add(listener);

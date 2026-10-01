@@ -17,9 +17,10 @@ describe("Zotero.PaperlyExtensions", function () {
 	}
 	
 	// Writes an .xpi that records in Zotero.PaperlyExtensionsTest which version
-	// of it is running, and serves it at files/<name>
-	async function makeExtension(version) {
-		let name = `test-${version}.xpi`;
+	// of it is running -- and, with withView, gives itself a view -- and serves
+	// it at files/<name>
+	async function makeExtension(version, { withView = false } = {}) {
+		let name = `test-${version}${withView ? '-view' : ''}.xpi`;
 		let path = PathUtils.join(dir, name);
 		/* eslint-disable camelcase */
 		let files = {
@@ -38,7 +39,14 @@ describe("Zotero.PaperlyExtensions", function () {
 					}
 				}
 			}),
-			'bootstrap.js': 'function startup({ version }) { Zotero.PaperlyExtensionsTest = version; }\n'
+			'bootstrap.js': 'function startup({ id, version }) {\n'
+				+ '  Zotero.PaperlyExtensionsTest = version;\n'
+				+ (withView
+					? '  Zotero.PaperlyExtensions.registerView({ pluginID: id, id: "main", label: "Test view",\n'
+						+ '    onRender({ body }) { body.textContent = "Hello from " + version; },\n'
+						+ '    onDestroy() { Zotero.PaperlyExtensionsTestViewDestroyed = true; } });\n'
+					: '')
+				+ '}\n'
 				+ 'function shutdown() { delete Zotero.PaperlyExtensionsTest; }\n'
 				+ 'function install() {}\nfunction uninstall() {}\n'
 		};
@@ -281,6 +289,35 @@ describe("Zotero.PaperlyExtensions", function () {
 		});
 	});
 	
+	describe("#registerView()", function () {
+		it("should add, replace and remove views", function () {
+			let mine = () => Zotero.PaperlyExtensions.getViews().filter(v => v.pluginID == 'views@example.com');
+			let removeFirst = Zotero.PaperlyExtensions.registerView({
+				pluginID: 'views@example.com', id: 'v', label: 'First', onRender() {}
+			});
+			let removeSecond = Zotero.PaperlyExtensions.registerView({
+				pluginID: 'views@example.com', id: 'v', label: 'Second', onRender() {}
+			});
+			assert.deepEqual(mine().map(v => v.label), ['Second']);
+			// A replaced view's remover no longer reaches the new one
+			removeFirst();
+			assert.lengthOf(mine(), 1);
+			removeSecond();
+			assert.lengthOf(mine(), 0);
+		});
+		
+		it("should refuse a view without what it needs", function () {
+			assert.throws(
+				() => Zotero.PaperlyExtensions.registerView({ pluginID: 'views@example.com', id: 'v', label: 'V' }),
+				/onRender/
+			);
+			assert.throws(
+				() => Zotero.PaperlyExtensions.registerView({ pluginID: 'views@example.com', label: 'V', onRender() {} }),
+				/'id'/
+			);
+		});
+	});
+	
 	describe("Extensions window", function () {
 		var win;
 		
@@ -325,6 +362,36 @@ describe("Zotero.PaperlyExtensions", function () {
 			uninstall.click();
 			await waitForVersion(undefined);
 			assert.isNull(await AddonManager.getAddonByID(ID));
+		});
+		
+		it("should show an extension's view, and take it away when the extension stops", async function () {
+			delete Zotero.PaperlyExtensionsTestViewDestroyed;
+			await publish(makeIndex([await makeExtension('1.0.0', { withView: true })]));
+			await Zotero.PaperlyExtensions.refresh();
+			await Zotero.PaperlyExtensions.install(ID);
+			await waitForVersion('1.0.0');
+			let key = `${ID}:main`;
+			
+			let opened = waitForWindow('chrome://zotero/content/paperlyExtensions.xhtml');
+			Zotero.PaperlyExtensions.openWindow({ view: key });
+			win = await opened;
+			let doc = win.document;
+			let body = await waitFor(() => doc.querySelector(`.view[data-view="${key}"] .view-body`));
+			assert.equal(body.textContent, 'Hello from 1.0.0');
+			assert.isTrue(doc.getElementById('manager').hidden);
+			assert.equal(doc.querySelector(`.view-button[data-view="${key}"]`).getAttribute('aria-selected'), 'true');
+			
+			// Back to the marketplace and in again: the view keeps what it drew
+			doc.getElementById('activity-manager').click();
+			assert.isFalse(doc.getElementById('manager').hidden);
+			doc.querySelector(`.view-button[data-view="${key}"]`).click();
+			assert.strictEqual(doc.querySelector(`.view[data-view="${key}"] .view-body`), body);
+			
+			await Zotero.PaperlyExtensions.setEnabled(ID, false);
+			await waitFor(() => !doc.querySelector(`.view[data-view="${key}"]`));
+			assert.isFalse(doc.getElementById('manager').hidden);
+			assert.isNull(doc.querySelector('.view-button'));
+			assert.isTrue(Zotero.PaperlyExtensionsTestViewDestroyed);
 		});
 		
 		it("should install nothing when the confirmation is cancelled", async function () {
