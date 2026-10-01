@@ -228,6 +228,59 @@ describe("Zotero.PaperlyExtensions", function () {
 		});
 	});
 	
+	describe("blocking", function () {
+		it("should switch a blocked extension off, and on again when the block is lifted", async function () {
+			let release = await makeExtension('1.0.0');
+			await publish(makeIndex([release]));
+			await Zotero.PaperlyExtensions.refresh();
+			await Zotero.PaperlyExtensions.install(ID);
+			await waitForVersion('1.0.0');
+			
+			let blocked = { [ID]: { versionRanges: ['*'], reason: 'Sends the library somewhere undisclosed.' } };
+			await publish(makeIndex([release], { blocked }));
+			await Zotero.PaperlyExtensions.refresh();
+			await waitForVersion(undefined);
+			let addon = await AddonManager.getAddonByID(ID);
+			assert.isFalse(addon.isActive);
+			assert.equal(Zotero.PaperlyExtensions.getBlockReason(addon), 'Sends the library somewhere undisclosed.');
+			
+			// Nor can it be switched back on by hand
+			try {
+				await addon.enable();
+			}
+			catch {}
+			assert.isFalse((await AddonManager.getAddonByID(ID)).isActive);
+			
+			await publish(makeIndex([release]));
+			await Zotero.PaperlyExtensions.refresh();
+			await waitForVersion('1.0.0');
+			addon = await AddonManager.getAddonByID(ID);
+			assert.isTrue(addon.isActive);
+			assert.isNull(Zotero.PaperlyExtensions.getBlockReason(addon));
+		});
+		
+		it("should leave versions outside the blocked range running", async function () {
+			let release = await makeExtension('1.1.0');
+			await publish(makeIndex([release]));
+			await Zotero.PaperlyExtensions.refresh();
+			await Zotero.PaperlyExtensions.install(ID);
+			await waitForVersion('1.1.0');
+			
+			let blocked = { [ID]: { versionRanges: [{ maxVersion: '1.0.9' }], reason: 'Old versions leak.' } };
+			await publish(makeIndex([release], { blocked }));
+			await Zotero.PaperlyExtensions.refresh();
+			assert.isTrue((await AddonManager.getAddonByID(ID)).isActive);
+			assert.equal(Zotero.PaperlyExtensionsTest, '1.1.0');
+		});
+		
+		it("should ignore a damaged list", function () {
+			Zotero.Prefs.set('paperlyExtensions.blocked', '{ not json');
+			assert.deepEqual(Zotero.PaperlyExtensions.getBlockedPlugins(), {});
+			Zotero.Prefs.set('paperlyExtensions.blocked', JSON.stringify({ a: { reason: 'r' }, b: { versionRanges: ['*'], reason: 'r' } }));
+			assert.deepEqual(Object.keys(Zotero.PaperlyExtensions.getBlockedPlugins()), ['b']);
+		});
+	});
+	
 	describe("#uninstall()", function () {
 		it("should remove the extension and stop it", async function () {
 			await publish(makeIndex([await makeExtension('1.0')]));

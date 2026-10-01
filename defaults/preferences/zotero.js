@@ -284,6 +284,9 @@ pref("extensions.zotero.paperlyExtensions.registryURL", "https://quynhtl.github.
 pref("extensions.zotero.paperlyExtensions.publicKey", "");
 pref("extensions.zotero.paperlyExtensions.autoCheck", true);
 pref("extensions.zotero.paperlyExtensions.lastCheck", 0);
+// The marketplace's blocks as of the last index that verified, read by
+// Zotero.Plugins before any plugin starts
+pref("extensions.zotero.paperlyExtensions.blocked", "");
 
 // Need to enable -moz-context-properties for SVG context properties to work
 pref("svg.context-properties.content.enabled", true);

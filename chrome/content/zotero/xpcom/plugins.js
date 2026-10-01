@@ -773,11 +773,15 @@ Zotero.Plugins = new function () {
 		}
 	};
 	function getBlockedPlugins() {
-		return BLOCKED_PLUGINS;
+		// Paperly: plus what its extension marketplace blocks (paperlyExtensions.js).
+		// Optional, so that plugins still load if that file ever fails to.
+		return Object.assign({}, BLOCKED_PLUGINS, Zotero.PaperlyExtensions?.getBlockedPlugins());
 	}
 
 
-	function shouldBlockPlugin(addon) {
+	// Paperly: the decision alone, without acting on it, so that
+	// applyBlockedPlugins() can stop a running plugin before blocking it
+	function getBlockedReason(addon) {
 		let blockedPlugins = getBlockedPlugins();
 		let id = addon.id;
 		let version = addon.version;
@@ -801,6 +805,12 @@ Zotero.Plugins = new function () {
 				}
 			}
 		}
+		return blockedReason;
+	}
+
+
+	function shouldBlockPlugin(addon) {
+		let blockedReason = getBlockedReason(addon);
 		if (blockedReason) {
 			Zotero.warn(`Blocking plugin ${addon.id}: ${blockedReason}`);
 		}
@@ -820,6 +830,24 @@ Zotero.Plugins = new function () {
 	}
 
 
+	/**
+	 * Checks every plugin against the blocked list again, switching off the
+	 * ones now blocked and back on the ones no longer blocked. Paperly: called
+	 * when the extension marketplace's blocks change.
+	 */
+	this.applyBlockedPlugins = async function () {
+		let addons = await AddonManager.getAddonsByTypes(['extension']);
+		for (let addon of addons) {
+			// A blocked plugin's bootstrap methods are no longer called (see
+			// _callMethod), so one that is running is stopped before it is blocked
+			if (addon.isActive && getBlockedReason(addon)) {
+				await _callMethod(addon, 'shutdown', REASONS.ADDON_DISABLE);
+			}
+			shouldBlockPlugin(addon);
+		}
+	};
+	
+	
 	/**
 	 * Add an observer to be notified of lifecycle events on all plugins.
 	 *

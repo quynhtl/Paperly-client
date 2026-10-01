@@ -150,8 +150,50 @@ Zotero.PaperlyExtensions = new function () {
 		await IOUtils.writeUTF8(PathUtils.join(dir, 'index.json.sig'), signature);
 		_index = index;
 		Zotero.Prefs.set('paperlyExtensions.lastCheck', Math.round(Date.now() / 1000));
+		await _applyBlocked(index.blocked);
 		_notify('index');
 		return index;
+	};
+	
+	
+	/**
+	 * What the marketplace blocks, in the format of Zotero.Plugins' own list of
+	 * blocked plugins, as of the last index that verified. Zotero.Plugins reads
+	 * it at startup, before any plugin runs, and synchronously -- hence a pref
+	 * rather than the kept index.
+	 */
+	this.getBlockedPlugins = function () {
+		let json = Zotero.Prefs.get('paperlyExtensions.blocked');
+		if (!json) {
+			return {};
+		}
+		let blocked = {};
+		try {
+			for (let [id, entry] of Object.entries(JSON.parse(json))) {
+				if (entry && typeof entry.reason == 'string' && Array.isArray(entry.versionRanges)) {
+					blocked[id] = {
+						versionRanges: entry.versionRanges.filter(r => typeof r == 'string' || (r && typeof r == 'object')),
+						reason: entry.reason
+					};
+				}
+			}
+		}
+		catch (e) {
+			Zotero.logError(e);
+		}
+		return blocked;
+	};
+	
+	
+	/**
+	 * Why an installed add-on is switched off by a block, or null.
+	 */
+	this.getBlockReason = function (addon) {
+		if (addon.blocklistState != Ci.nsIBlocklistService.STATE_BLOCKED) {
+			return null;
+		}
+		let entry = this.getBlockedPlugins()[addon.id];
+		return entry ? entry.reason : null;
 	};
 	
 	
@@ -304,6 +346,18 @@ Zotero.PaperlyExtensions = new function () {
 				Zotero.logError(e);
 			}
 		}
+	}
+	
+	
+	// Keeps the index's blocks where Zotero.Plugins looks for them, and has it
+	// switch off what is newly blocked -- and back on what no longer is.
+	async function _applyBlocked(blocked) {
+		let json = JSON.stringify(blocked || {});
+		if (json == (Zotero.Prefs.get('paperlyExtensions.blocked') || '{}')) {
+			return;
+		}
+		Zotero.Prefs.set('paperlyExtensions.blocked', json);
+		await Zotero.Plugins.applyBlockedPlugins();
 	}
 	
 	
