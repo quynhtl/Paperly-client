@@ -934,6 +934,10 @@ Zotero.Plugins = new function () {
 				return;
 			}
 			Zotero.debug("Enabling plugin " + addon.id);
+			// Paperly: recorded here too, for a plugin that did not start with
+			// Zotero -- disabled or blocked then -- so that an update later in
+			// the session stops this version and unloads it first (onInstalling)
+			addonVersions.set(addon.id, addon.version);
 			_loadScope(addon);
 			setDefaultPrefs(addon);
 			await registerLocales(addon);
