@@ -652,7 +652,9 @@ var ZoteroPane = new function () {
 			catch (e) {}
 		}
 		
-		if (!Zotero.Prefs.get('themePickerShown') && !Zotero.automatedTest) {
+		// Not under the test runner, where a modal dialog would hold up every
+		// test that opens the main window
+		if (!Zotero.Prefs.get('themePickerShown') && !Zotero.test) {
 			Zotero.Prefs.set('themePickerShown', true);
 			setTimeout(() => {
 				window.openDialog(
