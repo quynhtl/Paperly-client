@@ -481,9 +481,13 @@ Zotero.PaperlyExtensions = new function () {
 	 * that listing as `conflict` instead: a different extension, which must
 	 * neither describe nor replace it. `previousPublisher` is the GitHub account
 	 * the extension was installed from, when its listing now names another.
+	 * `fromMarketplace` is whether the add-on takes its updates from the
+	 * marketplace, listed or not: the index drops an extension that is
+	 * delisted, blocked outright, or has no release that passed, and the
+	 * copy installed from here is still the marketplace's.
 	 *
 	 * @return {Promise<{ addon: Addon, extension: Object|null, conflict: Object|null,
-	 *     previousPublisher: String|null }[]>}
+	 *     previousPublisher: String|null, fromMarketplace: Boolean }[]>}
 	 */
 	this.getInstalled = async function () {
 		let index = await this.getIndex();
@@ -497,7 +501,8 @@ Zotero.PaperlyExtensions = new function () {
 					addon,
 					extension: own ? listing : null,
 					conflict: own ? null : listing,
-					previousPublisher: own ? _getPreviousPublisher(listing) : null
+					previousPublisher: own ? _getPreviousPublisher(listing) : null,
+					fromMarketplace: _isFromMarketplace(addon)
 				};
 			});
 	};

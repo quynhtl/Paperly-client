@@ -323,6 +323,7 @@ describe("Zotero.PaperlyExtensions", function () {
 			let entry = (await Zotero.PaperlyExtensions.getInstalled()).find(x => x.addon.id == ID);
 			assert.isNull(entry.extension);
 			assert.equal(entry.conflict.id, ID);
+			assert.isFalse(entry.fromMarketplace);
 			let error = await getPromiseError(Zotero.PaperlyExtensions.install(ID));
 			assert.equal(error.code, 'id-conflict');
 			assert.equal((await AddonManager.getAddonByID(ID)).version, '1.0');
@@ -839,6 +840,33 @@ describe("Zotero.PaperlyExtensions", function () {
 			});
 			assert.includeMembers(banners, ['extensions-not-from-marketplace', 'extensions-id-conflict']);
 			assert.isNull(doc.querySelector('[data-l10n-id="extensions-update"]'));
+		});
+		
+		it("should say a marketplace extension the index drops is no longer listed", async function () {
+			await publish(makeIndex([await makeExtension('1.0')]));
+			await Zotero.PaperlyExtensions.refresh();
+			await Zotero.PaperlyExtensions.install(ID);
+			await waitForVersion('1.0');
+			// Blocked outright, which the marketplace's build drops from the index
+			let blocked = { [ID]: { versionRanges: ['*'], reason: 'Exfiltrates the library.' } };
+			await publish({ ...makeIndex([], { blocked }), extensions: [] });
+			await Zotero.PaperlyExtensions.refresh();
+			await waitForVersion(undefined);
+			let entry = (await Zotero.PaperlyExtensions.getInstalled()).find(x => x.addon.id == ID);
+			assert.isNull(entry.extension);
+			assert.isNull(entry.conflict);
+			assert.isTrue(entry.fromMarketplace);
+			
+			let opened = waitForWindow('chrome://zotero/content/paperlyExtensions.xhtml');
+			Zotero.PaperlyExtensions.openWindow({ extensionID: ID });
+			win = await opened;
+			let doc = win.document;
+			let banners = await waitFor(() => {
+				let ids = [...doc.querySelectorAll('#details .banner')].map(b => b.getAttribute('data-l10n-id'));
+				return ids.length && ids;
+			});
+			// Not that it came from outside the marketplace, which it did not
+			assert.sameMembers(banners, ['extensions-blocked-banner', 'extensions-not-listed']);
 		});
 		
 		it("should confirm an update from a version the marketplace does not list", async function () {

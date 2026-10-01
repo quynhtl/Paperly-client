@@ -571,7 +571,15 @@ var Zotero_Paperly_Extensions = {
 		if (blockReason) {
 			banners.push(h('p', { class: 'banner error', l10n: { id: 'extensions-blocked-banner', args: { reason: blockReason } } }));
 		}
-		if (addon && !extension) {
+		if (addon && !extension && entry.fromMarketplace && !entry.conflict) {
+			// The marketplace's own copy, which the index no longer lists --
+			// delisted, blocked outright, or with no release that passed. With
+			// no index yet, there is nothing to say either way.
+			if (this._index) {
+				banners.push(h('p', { class: 'banner warning', l10n: { id: 'extensions-not-listed' } }));
+			}
+		}
+		else if (addon && !extension) {
 			banners.push(h('p', { class: 'banner warning', l10n: { id: 'extensions-not-from-marketplace' } }));
 		}
 		if (entry.conflict) {

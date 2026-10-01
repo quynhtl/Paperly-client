@@ -47,6 +47,7 @@ extensions-badge-blocked = Blocked
 extensions-badge-update = Update
 
 extensions-not-from-marketplace = Installed from outside the marketplace, so nothing has checked it.
+extensions-not-listed = No longer listed in the marketplace.
 extensions-id-conflict = The marketplace lists a different extension with the same id. It can’t replace this one.
 extensions-publisher-changed = This extension was installed from { $previous } on GitHub, and the marketplace now lists it under { $current }. It won’t be updated until you accept that here.
 extensions-blocked-banner = Paperly switched this extension off: { $reason }
