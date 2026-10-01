@@ -143,7 +143,8 @@ var Zotero_Paperly_Extensions = {
 		if (!Zotero.PaperlyExtensions.isConfigured()) {
 			this._setStatus({ l10nID: 'extensions-status-not-configured' });
 		}
-		else if (!this._index || Date.now() - lastCheck > STALE_AFTER) {
+		// A check dated in the future was made while the clock was wrong
+		else if (!this._index || lastCheck > Date.now() || Date.now() - lastCheck > STALE_AFTER) {
 			this.refresh();
 		}
 		else {

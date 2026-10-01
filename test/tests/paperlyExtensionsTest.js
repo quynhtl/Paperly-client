@@ -646,6 +646,18 @@ describe("Zotero.PaperlyExtensions", function () {
 			assert.equal((await AddonManager.getAddonByID(ID)).version, '1.0');
 		});
 		
+		it("should check again when the last check is dated in the future", async function () {
+			await publish(makeIndex([await makeExtension('1.0.0')]));
+			await Zotero.PaperlyExtensions.refresh();
+			// As if checked while the clock was a year ahead
+			let future = Math.round(Date.now() / 1000) + 365 * 24 * 60 * 60;
+			Zotero.Prefs.set('paperlyExtensions.lastCheck', future);
+			let opened = waitForWindow('chrome://zotero/content/paperlyExtensions.xhtml');
+			Zotero.PaperlyExtensions.openWindow();
+			win = await opened;
+			await waitFor(() => Zotero.Prefs.get('paperlyExtensions.lastCheck') < future);
+		});
+		
 		it("should install nothing when the confirmation is cancelled", async function () {
 			await publish(makeIndex([await makeExtension('1.0.0')]));
 			await Zotero.PaperlyExtensions.refresh();

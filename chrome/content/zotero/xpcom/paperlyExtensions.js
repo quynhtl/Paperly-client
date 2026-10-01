@@ -108,7 +108,9 @@ Zotero.PaperlyExtensions = new function () {
 		}
 		let tick = () => {
 			let last = Zotero.Prefs.get('paperlyExtensions.lastCheck') * 1000;
-			if (Date.now() - last >= CHECK_INTERVAL) {
+			// A check dated in the future was made while the clock was wrong,
+			// and must not hold off the next one -- and new blocks -- till then
+			if (last > Date.now() || Date.now() - last >= CHECK_INTERVAL) {
 				this.refresh().catch(e => Zotero.debug(`Paperly extensions: ${e.message}`, 2));
 			}
 			_checkTimer = setTimeout(tick, CHECK_TICK);
