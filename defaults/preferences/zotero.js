@@ -276,6 +276,15 @@ pref("browser.theme.toolbar-theme", 0);
 pref("extensions.zotero.darkTheme", "paperly");
 pref("extensions.zotero.themePickerShown", false);
 
+// Paperly's extension marketplace (xpcom/paperlyExtensions.js), published by
+// the paperly-extensions repository. Its index is only believed when it
+// verifies with publicKey, which `node scripts/keygen.mjs` there makes;
+// until it is set, the Extensions window says the marketplace is not set up.
+pref("extensions.zotero.paperlyExtensions.registryURL", "https://quynhtl.github.io/paperly-extensions/");
+pref("extensions.zotero.paperlyExtensions.publicKey", "");
+pref("extensions.zotero.paperlyExtensions.autoCheck", true);
+pref("extensions.zotero.paperlyExtensions.lastCheck", 0);
+
 // Need to enable -moz-context-properties for SVG context properties to work
 pref("svg.context-properties.content.enabled", true);
 

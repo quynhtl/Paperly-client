@@ -115,6 +115,7 @@ const xpcomFilesLocal = [
 	'fileHandlers',
 	'osKeyStore',
 	'plugins',
+	'paperlyExtensions',
 	'pluginAPI/menuManager',
 	'pluginAPI/itemPaneManager',
 	'pluginAPI/itemTreeManager',
