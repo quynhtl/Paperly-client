@@ -35,10 +35,10 @@
 // unsigned, which anything in between could rewrite. So an update it is about
 // to make over a marketplace extension goes ahead only when the signed index
 // lists that version with that file's SHA-256, the version uses nothing the
-// installed one did not, and the listing still names the publisher the
-// extension was installed from. Anything else is cancelled, and it tries again
-// the next day; an update that uses more, or comes from someone new, is the
-// user's to confirm, in the Extensions window.
+// user has not agreed to the installed one using, and the listing still names
+// the publisher the extension was installed from. Anything else is cancelled,
+// and it tries again the next day; an update that uses more, or comes from
+// someone new, is the user's to confirm, in the Extensions window.
 
 Zotero.PaperlyExtensions = new function () {
 	const CHECK_INTERVAL = 24 * 60 * 60 * 1000;
@@ -129,8 +129,8 @@ Zotero.PaperlyExtensions = new function () {
 		Zotero.addShutdownListener(() => AddonManager.removeInstallListener(_updateGuard));
 		this.getIndex().catch(e => Zotero.logError(e));
 	};
-
-
+	
+	
 	/**
 	 * Whether there is a marketplace to talk to: an address, and a key to
 	 * check what comes from it.
@@ -396,6 +396,7 @@ Zotero.PaperlyExtensions = new function () {
 			throw _error('wrong-id', `The marketplace's file for ${id} installed ${addon.id}`);
 		}
 		_setPublisher(extension);
+		_setAgreedUses(id, release.uses || []);
 		_notify('addons');
 		return addon;
 	};
@@ -657,8 +658,7 @@ Zotero.PaperlyExtensions = new function () {
 		if (hash != String(release.sha256).toLowerCase()) {
 			return 'the file is not the one the marketplace lists';
 		}
-		let installed = extension.versions.find(v => v.version == existing.version);
-		let usedBefore = (installed && installed.uses) || [];
+		let usedBefore = _getUsedBefore(extension, existing);
 		let newUses = (release.uses || []).filter(use => !usedBefore.includes(use));
 		if (newUses.length) {
 			return `it also uses ${newUses.join(', ')}, which the user has not agreed to`;
@@ -667,17 +667,52 @@ Zotero.PaperlyExtensions = new function () {
 	}
 	
 	
-	// The GitHub account each marketplace extension was installed from, by id. An
-	// id can change hands -- delisted, then listed again by someone else -- and
-	// what comes from the new holder is the user's to accept, not an update's.
-	function _getPublishers() {
+	// What the installed version of a marketplace extension uses, as far as the
+	// user agreed to it: as the index lists that version, or -- once it no
+	// longer does, being blocked, or some releases behind -- as recorded when
+	// install() put it there. Without either (the extension shipped with
+	// Paperly, say), what its listing declares, which a first install shows.
+	function _getUsedBefore(extension, addon) {
+		let installed = extension.versions.find(v => v.version == addon.version);
+		if (installed) {
+			return installed.uses || [];
+		}
+		let agreed = _getPrefObject('paperlyExtensions.agreedUses')[addon.id];
+		if (Array.isArray(agreed)) {
+			return agreed;
+		}
+		let declares = extension.declares || {};
+		return Object.keys(declares).filter(
+			key => (Array.isArray(declares[key]) ? declares[key].length > 0 : declares[key] === true)
+		);
+	}
+	
+	
+	// What the user agreed to the extension using, by installing it from here
+	function _setAgreedUses(id, uses) {
+		let agreed = _getPrefObject('paperlyExtensions.agreedUses');
+		agreed[id] = uses;
+		Zotero.Prefs.set('paperlyExtensions.agreedUses', JSON.stringify(agreed));
+	}
+	
+	
+	// A pref that holds an object as JSON, or {} if it holds anything else
+	function _getPrefObject(pref) {
 		try {
-			let publishers = JSON.parse(Zotero.Prefs.get('paperlyExtensions.publishers') || '{}');
-			return publishers && typeof publishers == 'object' ? publishers : {};
+			let value = JSON.parse(Zotero.Prefs.get(pref) || '{}');
+			return value && typeof value == 'object' && !Array.isArray(value) ? value : {};
 		}
 		catch {
 			return {};
 		}
+	}
+	
+	
+	// The GitHub account each marketplace extension was installed from, by id. An
+	// id can change hands -- delisted, then listed again by someone else -- and
+	// what comes from the new holder is the user's to accept, not an update's.
+	function _getPublishers() {
+		return _getPrefObject('paperlyExtensions.publishers');
 	}
 	
 	

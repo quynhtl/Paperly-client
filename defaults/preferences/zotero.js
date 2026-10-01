@@ -289,6 +289,9 @@ pref("extensions.zotero.paperlyExtensions.lastCheck", 0);
 pref("extensions.zotero.paperlyExtensions.lastGenerated", "");
 // The GitHub account each marketplace extension was installed from, by id
 pref("extensions.zotero.paperlyExtensions.publishers", "");
+// What each marketplace extension used when installed from the marketplace, by
+// id: what the user agreed to, once the index no longer lists that version
+pref("extensions.zotero.paperlyExtensions.agreedUses", "");
 // The marketplace's blocks as of the last index that verified, read by
 // Zotero.Plugins before any plugin starts
 pref("extensions.zotero.paperlyExtensions.blocked", "");

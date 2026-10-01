@@ -78,7 +78,7 @@ describe("Zotero.PaperlyExtensions", function () {
 		};
 	}
 	
-	function makeIndex(versions, { generated = new Date(), blocked = {}, publisher } = {}) {
+	function makeIndex(versions, { generated = new Date(), blocked = {}, publisher, declares = {} } = {}) {
 		return {
 			schema: 1,
 			generated: generated.toISOString(),
@@ -95,7 +95,7 @@ describe("Zotero.PaperlyExtensions", function () {
 				privacyPolicy: null,
 				categories: [],
 				icon: null,
-				declares: {},
+				declares,
 				updateURL: marketplaceUpdateURL(),
 				versions: versions.map(v => ({ size: 0, released: null, uses: [], hosts: [], findings: [], ...v }))
 			}],
@@ -352,6 +352,42 @@ describe("Zotero.PaperlyExtensions", function () {
 			await Zotero.PaperlyExtensions.refresh();
 			assert.equal(await installDirectly(update), 'cancelled');
 			assert.equal((await AddonManager.getAddonByID(ID)).version, '1.0');
+		});
+		
+		it("should judge one by what was installed once the index drops the installed version", async function () {
+			let first = await makeExtension('1.0');
+			await publish(makeIndex([{ ...first, uses: ['files'] }]));
+			await Zotero.PaperlyExtensions.refresh();
+			await Zotero.PaperlyExtensions.install(ID);
+			await waitForVersion('1.0');
+			// 1.0 is blocked, and so gone from the index; 1.1 is the fix
+			let blocked = { [ID]: { versionRanges: [{ maxVersion: '1.0' }], reason: 'Leaks.' } };
+			let fix = await makeExtension('1.1');
+			await publish(makeIndex([{ ...fix, uses: ['files', 'passwords'] }], { blocked }));
+			await Zotero.PaperlyExtensions.refresh();
+			await waitForVersion(undefined);
+			assert.equal(await installDirectly(fix), 'cancelled');
+			
+			await publish(makeIndex([{ ...fix, uses: ['files'] }], { blocked }));
+			await Zotero.PaperlyExtensions.refresh();
+			assert.equal(await installDirectly(fix), 'installed');
+			await waitForVersion('1.1');
+			assert.isTrue((await AddonManager.getAddonByID(ID)).isActive);
+		});
+		
+		it("should judge one over a version not installed from here by what the listing declares", async function () {
+			// As the extension shipped with Paperly is
+			assert.equal(await installDirectly(await makeExtension('1.0')), 'installed');
+			await waitForVersion('1.0');
+			let update = await makeExtension('1.1');
+			await publish(makeIndex([{ ...update, uses: ['files'] }]));
+			await Zotero.PaperlyExtensions.refresh();
+			assert.equal(await installDirectly(update), 'cancelled');
+			
+			await publish(makeIndex([{ ...update, uses: ['files'] }], { declares: { files: true } }));
+			await Zotero.PaperlyExtensions.refresh();
+			assert.equal(await installDirectly(update), 'installed');
+			await waitForVersion('1.1');
 		});
 	});
 	
