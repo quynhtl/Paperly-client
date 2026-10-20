@@ -78,7 +78,7 @@ be a script outside the app rather than a migration in JS. A fresh profile will 
 library already in `~/Zotero` keeps working if it is passed with `-datadir` or
 set in the data directory preference.
 
-`app/scripts/*` and `Zotero-WebAI/scripts/dev-reload.sh` follow the bundle by
+`app/scripts/*` and `paperly-plugin/scripts/dev-reload.sh` follow the bundle by
 path, and were updated with it.
 
 ## Deliberately still named Zotero
